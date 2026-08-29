@@ -1,0 +1,63 @@
+'use client';
+
+import React from 'react';
+import { useViewerStore } from '@/store/useViewerStore';
+import { RenderMode } from '@/types/dental';
+import { Box, Sparkles, Eye } from 'lucide-react';
+
+const ShadedIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <circle cx="12" cy="12" r="9" opacity="0.85" />
+    <path d="M12 3a9 9 0 0 1 9 9c0 4.97-4.03 9-9 9V3z" fill="#ffffff" opacity="0.4" />
+  </svg>
+);
+
+const WireframeIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3.6 9h16.8M3.6 15h16.8" />
+    <path d="M12 3a14.5 14.5 0 0 0 0 18M12 3a14.5 14.5 0 0 1 0 18" />
+  </svg>
+);
+
+interface RenderOption {
+  id: RenderMode;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const RENDER_OPTIONS: RenderOption[] = [
+  { id: 'shaded', label: 'Shaded', icon: <ShadedIcon className="w-3.5 h-3.5" /> },
+  { id: 'wireframe', label: 'Wireframe', icon: <WireframeIcon className="w-3.5 h-3.5" /> },
+  { id: 'solid', label: 'Solid', icon: <Box className="w-3.5 h-3.5" /> },
+  { id: 'xray', label: 'X-Ray', icon: <Eye className="w-3.5 h-3.5" /> },
+];
+
+export const RenderModePill: React.FC = () => {
+  const { renderMode, setRenderMode } = useViewerStore();
+
+  return (
+    <div className="absolute bottom-4 right-4 z-20 select-none">
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-floating border border-slate-200/80 p-1 flex items-center gap-1">
+        {RENDER_OPTIONS.map((opt) => {
+          const isActive = renderMode === opt.id;
+          return (
+            <button
+              key={opt.id}
+              id={`render-mode-btn-${opt.id}`}
+              onClick={() => setRenderMode(opt.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              {opt.icon}
+              <span>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
