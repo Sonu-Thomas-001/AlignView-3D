@@ -12,7 +12,8 @@ import {
   Layers,
   FolderOpen,
   LogOut,
-  UserCheck
+  UserCheck,
+  User
 } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
 
@@ -37,6 +38,9 @@ export const Header: React.FC = () => {
     patientName,
   } = useViewerStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const totalFiles = upperFiles.length + lowerFiles.length;
+  const hasFiles = totalFiles > 0;
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -71,19 +75,23 @@ export const Header: React.FC = () => {
         </a>
 
         {/* Patient Case Badge */}
-        {patientName && (
-          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-xl text-xs shadow-2xs">
-            <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-              <UserCheck className="w-3 h-3" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-800 tracking-tight">{patientName}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">
-                {upperFiles.length + lowerFiles.length} STLs
-              </span>
-            </div>
+        <div className="hidden md:flex items-center gap-2 px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-xl text-xs shadow-2xs">
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center font-bold ${
+            hasFiles ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'
+          }`}>
+            {hasFiles ? <UserCheck className="w-3 h-3" /> : <User className="w-3 h-3 text-slate-400" />}
           </div>
-        )}
+          <div className="flex items-center gap-1.5">
+            <span className={`tracking-tight ${hasFiles ? 'font-bold text-slate-800' : 'font-medium text-slate-400 italic'}`}>
+              {hasFiles ? (patientName || 'Patient Case') : 'No Patient Loaded'}
+            </span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+              hasFiles ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'
+            }`}>
+              {totalFiles} STLs
+            </span>
+          </div>
+        </div>
 
         {/* Mobile/Tablet Arch Sidebar Trigger Pills (visible below lg screen) */}
         <div className="flex lg:hidden items-center gap-1.5 ml-1 sm:ml-2">

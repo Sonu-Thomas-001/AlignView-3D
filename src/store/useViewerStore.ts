@@ -403,17 +403,21 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   deleteAllSTLs: (arch) => {
     if (arch === 'upper') {
+      const remainingLower = get().lowerFiles;
       set({
         upperFiles: [],
         selectedUpperId: '',
+        patientName: remainingLower.length === 0 ? '' : get().patientName,
         ...(get().viewMode === 'upper' ? {
           modelStats: { vertices: 0, triangles: 0, width: 0, depth: 0, height: 0 }
         } : {})
       });
     } else {
+      const remainingUpper = get().upperFiles;
       set({
         lowerFiles: [],
         selectedLowerId: '',
+        patientName: remainingUpper.length === 0 ? '' : get().patientName,
         ...(get().viewMode === 'lower' ? {
           modelStats: { vertices: 0, triangles: 0, width: 0, depth: 0, height: 0 }
         } : {})
@@ -427,6 +431,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       set((state) => ({
         upperFiles: INITIAL_UPPER_FILES,
         selectedUpperId: first ? first.id : '',
+        patientName: state.patientName || 'Demo Patient',
         ...(state.viewMode === 'upper' && first ? {
           modelStats: {
             vertices: first.verticesCount,
@@ -443,6 +448,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       set((state) => ({
         lowerFiles: INITIAL_LOWER_FILES,
         selectedLowerId: first ? first.id : '',
+        patientName: state.patientName || 'Demo Patient',
         ...(state.viewMode === 'lower' && first ? {
           modelStats: {
             vertices: first.verticesCount,
