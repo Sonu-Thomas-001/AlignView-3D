@@ -8,10 +8,11 @@ import { BentoGridSection } from '@/components/landing/BentoGridSection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { CtaSection } from '@/components/landing/CtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
+import { FloatingBackToTop } from '@/components/ui/FloatingBackToTop';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white scroll-smooth flex flex-col">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white scroll-smooth flex flex-col relative">
       {/* 1. Semantic Sticky Header & Navbar */}
       <LandingNavbar />
 
@@ -35,6 +36,9 @@ export default function LandingPage() {
 
       {/* 3. Semantic Footer */}
       <LandingFooter />
+
+      {/* 4. Always-Visible Floating Tooth Back to Top Button */}
+      <FloatingBackToTop />
     </div>
   );
 }

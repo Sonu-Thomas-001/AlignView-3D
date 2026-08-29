@@ -87,6 +87,14 @@ export const LandingNavbar: React.FC = () => {
 
         {/* Right: Actions */}
         <div className="hidden sm:flex items-center gap-2.5 shrink-0">
+          {/* Sign In Link */}
+          <Link
+            href="/login"
+            className="px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-blue-600 transition-colors"
+          >
+            Sign In
+          </Link>
+
           {/* GitHub Star Button */}
           <a
             href="https://github.com/Sonu-Thomas-001/AlignView-3D"
@@ -116,6 +124,13 @@ export const LandingNavbar: React.FC = () => {
 
         {/* Mobile Menu Trigger */}
         <div className="flex md:hidden items-center gap-2">
+          <Link
+            href="/login"
+            className="px-2.5 py-1 rounded-full text-xs font-bold text-slate-700 hover:bg-slate-100"
+          >
+            Sign In
+          </Link>
+
           <Link
             href="/studio"
             className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm"
@@ -150,6 +165,14 @@ export const LandingNavbar: React.FC = () => {
           </div>
 
           <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+            <Link
+              href="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-center gap-2 py-2 text-xs font-bold text-slate-800 bg-slate-100 rounded-xl"
+            >
+              <span>Clinician Sign In</span>
+            </Link>
+
             <a
               href="https://github.com/Sonu-Thomas-001/AlignView-3D"
               target="_blank"
