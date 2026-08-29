@@ -5,8 +5,6 @@ import { LandingNavbar } from '@/components/landing/LandingNavbar';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { MetricsSection } from '@/components/landing/MetricsSection';
 import { BentoGridSection } from '@/components/landing/BentoGridSection';
-import { WorkflowSection } from '@/components/landing/WorkflowSection';
-import { BeforeAfterSection } from '@/components/landing/BeforeAfterSection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { CtaSection } from '@/components/landing/CtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
@@ -19,20 +17,14 @@ export default function LandingPage() {
 
       {/* 2. Semantic Main Body */}
       <main className="flex-1">
-        {/* Hero Section with Animated Mock Studio Interface & Badges */}
+        {/* Hero Section with Release Badges & Value Proposition */}
         <HeroSection />
 
-        {/* Performance & Speed Metrics Ribbon */}
+        {/* Performance & Speed Metrics Telemetry Card */}
         <MetricsSection />
 
         {/* Bento Grid Innovation Feature Suite */}
         <BentoGridSection />
-
-        {/* 4-Step Clinical & Lab Workflow Tabs */}
-        <WorkflowSection />
-
-        {/* Interactive Before / After Smile Alignment Slider */}
-        <BeforeAfterSection />
 
         {/* Frequently Asked Questions Accordion */}
         <FaqSection />

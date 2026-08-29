@@ -172,7 +172,6 @@ export const LandingFooter: React.FC = () => {
             </h4>
             <ul className="space-y-2.5 text-xs sm:text-sm">
               <li><a href="#features" className="hover:text-white transition-colors">Key Features</a></li>
-              <li><a href="#workflow" className="hover:text-white transition-colors">Clinical Workflow</a></li>
               <li><a href="#metrics" className="hover:text-white transition-colors">Performance Specs</a></li>
               <li><a href="#faq" className="hover:text-white transition-colors">Frequently Asked Questions</a></li>
             </ul>
