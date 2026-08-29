@@ -207,6 +207,9 @@ npm run start
 
 ---
 
-## 📄 License
+## 📄 License & Intellectual Property
 
-This project is open-source and licensed under the [MIT License](LICENSE).
+AlignView 3D is a proprietary product of **MidCell Studios**, authored and engineered by **Sonu Thomas**. All rights reserved.
+
+Unauthorized copying, cloning, code redistribution, or creating unauthorized commercial forks is strictly prohibited under our [Proprietary License](LICENSE) and [Terms of Service](https://alignview-3d.vercel.app/terms).
+

@@ -49,7 +49,7 @@ export default function TermsPage() {
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900">Proprietary Ownership & Intellectual Property</h2>
               </div>
               <p>
-                AlignView 3D, including its source code, 3D dental mathematical algorithms, geometry generation engines, shader pipelines, user interfaces, branding, and visual assets (collectively, the &quot;Software&quot;), is the exclusive intellectual property of <strong>Sonu Thomas</strong> (&quot;Owner&quot;). All rights, title, and interest are strictly reserved.
+                AlignView 3D, including its source code, 3D dental mathematical algorithms, geometry generation engines, shader pipelines, user interfaces, branding, and visual assets (collectively, the &quot;Software&quot;), is a proprietary product of <strong>MidCell Studios</strong>, authored and engineered by <strong>Sonu Thomas</strong> (&quot;Owner&quot;). All rights, title, and interest are strictly reserved.
               </p>
             </section>
 

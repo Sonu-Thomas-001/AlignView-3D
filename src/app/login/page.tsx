@@ -223,7 +223,7 @@ export default function LoginPage() {
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Encrypted local session • Zero server storage</span>
             </p>
-            <p>© {new Date().getFullYear()} AlignView 3D by Sonu Thomas. Proprietary.</p>
+            <p>© {new Date().getFullYear()} AlignView 3D by Sonu Thomas. A product of MidCell Studios. All Rights Reserved.</p>
           </div>
 
         </div>

@@ -70,7 +70,7 @@ const FAQS: FaqItem[] = [
     id: 'license',
     category: 'general',
     question: 'Can I copy, clone, or reuse the AlignView 3D source code?',
-    answer: 'No. AlignView 3D is proprietary software and all intellectual property rights belong exclusively to Sonu Thomas. You are granted access to use the web application for clinical visualization, but copying, duplicating, reverse engineering, or creating unauthorized forks/commercial clones is strictly prohibited under our Terms of Service.',
+    answer: 'No. AlignView 3D is a proprietary product of MidCell Studios, authored by Sonu Thomas. All intellectual property rights belong exclusively to MidCell Studios / Sonu Thomas. You are granted access to use the web application for clinical visualization, but copying, duplicating, reverse engineering, or creating unauthorized forks/commercial clones is strictly prohibited under our Terms of Service.',
     highlights: ['Proprietary & All Rights Reserved', 'Code duplication & cloning strictly prohibited', 'Free to use via web interface'],
     icon: <Code2 className="w-4 h-4 text-indigo-600" />,
   },

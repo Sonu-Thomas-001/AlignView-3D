@@ -55,12 +55,12 @@ export const metadata: Metadata = {
   ],
   authors: [
     {
-      name: "Sonu Thomas",
+      name: "Sonu Thomas (MidCell Studios)",
       url: "https://github.com/Sonu-Thomas-001",
     },
   ],
   creator: "Sonu Thomas",
-  publisher: "AlignView 3D",
+  publisher: "MidCell Studios",
   applicationName: "AlignView 3D",
   category: "Medical / Dental Technology",
   formatDetection: {

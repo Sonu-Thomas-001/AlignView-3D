@@ -92,7 +92,7 @@ export const LandingFooter: React.FC = () => {
               </Link>
 
               <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
-                Proprietary WebGL dental STL previewer & 32-stage orthodontic aligner simulator. Engineered for orthodontists, clinics, dental labs, and CAD developers.
+                Proprietary WebGL dental STL previewer & 32-stage orthodontic aligner simulator. A product of MidCell Studios, engineered by Sonu Thomas.
               </p>
 
               {/* Live Operational Status Badge */}
@@ -205,6 +205,8 @@ export const LandingFooter: React.FC = () => {
         <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-center sm:text-left">
             <span>© {new Date().getFullYear()} AlignView 3D by Sonu Thomas.</span>
+            <span className="hidden sm:inline">•</span>
+            <span className="text-slate-400 font-medium">A product of MidCell Studios.</span>
             <span className="hidden sm:inline">•</span>
             <span>Proprietary Software. All Rights Reserved.</span>
             <span className="hidden sm:inline">•</span>
