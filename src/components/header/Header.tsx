@@ -56,17 +56,23 @@ export const Header: React.FC = () => {
     <header className="h-16 px-3 sm:px-6 bg-white border-b border-slate-200/90 flex items-center justify-between select-none z-30 shrink-0 gap-2">
       {/* Left: Brand Identity + Mobile Arch Toggles */}
       <div className="flex items-center gap-2 sm:gap-3.5">
-        <div className="p-1 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-          <AppLogoTooth />
-        </div>
-        <div>
-          <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight tracking-tight flex items-center gap-2">
-            AlignView 3D
-          </h1>
-          <p className="text-[10px] sm:text-xs font-medium text-slate-400 hidden xs:block">
-            View <span className="text-slate-300">•</span> Compare <span className="text-slate-300">•</span> Analyze
-          </p>
-        </div>
+        <a 
+          href="/" 
+          className="flex items-center gap-2 sm:gap-3 group"
+          title="Return to Home Landing Page"
+        >
+          <div className="p-1 rounded-xl bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center shrink-0">
+            <AppLogoTooth />
+          </div>
+          <div>
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight tracking-tight flex items-center gap-2">
+              AlignView 3D
+            </h1>
+            <p className="text-[10px] sm:text-xs font-medium text-slate-400 hidden xs:block">
+              View <span className="text-slate-300">•</span> Compare <span className="text-slate-300">•</span> Analyze
+            </p>
+          </div>
+        </a>
 
         {/* Mobile/Tablet Arch Sidebar Trigger Pills (visible below lg screen) */}
         <div className="flex lg:hidden items-center gap-1.5 ml-1 sm:ml-2">

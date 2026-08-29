@@ -53,8 +53,9 @@
 ```mermaid
 graph TD
     %% Global Application Architecture
-    subgraph UI_Layer ["🖥️ Presentation & UI Layer (Next.js 14 App Router)"]
-        Page["src/app/page.tsx (Main Layout Engine)"]
+    subgraph UI_Layer ["🖥️ Presentation & Routing Layer (Next.js 16 App Router)"]
+        LandingPage["src/app/page.tsx (World-Class Landing Page)"]
+        StudioPage["src/app/studio/page.tsx (3D STL Dental Studio)"]
         Header["Header (Brand, Reset, Screenshot, Fullscreen, Export)"]
         LeftSidebar["Upper Arch Sidebar (Search, File List, 3D Thumbs)"]
         RightSidebar["Lower Arch Sidebar (Search, File List, 3D Thumbs)"]
