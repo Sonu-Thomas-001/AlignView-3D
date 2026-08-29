@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { 
   ChevronDown, 
-  Sparkles, 
   HelpCircle, 
   Layers, 
   ShieldCheck, 
@@ -12,8 +11,10 @@ import {
   Code2, 
   MessageSquare,
   ArrowRight,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
+import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
 interface FaqItem {
   id: string;
@@ -90,133 +91,141 @@ export const FaqSection: React.FC = () => {
   };
 
   return (
-    <section id="faq" className="py-24 sm:py-32 bg-slate-50 relative overflow-hidden">
+    <section id="faq" className="py-10 sm:py-16 bg-slate-50 relative overflow-hidden">
       {/* Background ambient lighting */}
       <div className="absolute top-1/2 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           
           {/* Left Column (5 Cols): Sticky Header, Category Filters & Help Card */}
-          <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-8">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/90 text-blue-800 text-xs font-bold mb-4">
-                <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
-                <span>Knowledge Base & Support</span>
+          <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-6">
+            <ScrollReveal animation="fade-up">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/90 text-blue-800 text-xs font-bold mb-3">
+                  <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Knowledge Base & Support</span>
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                  Frequently Asked Questions
+                </h2>
+                <p className="mt-3 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  Everything you need to know about AlignView 3D’s WebGL engine, clear aligner biomechanics, client-side privacy, and precision diagnostic tools.
+                </p>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                Frequently Asked Questions
-              </h2>
-              <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed">
-                Everything you need to know about AlignView 3D’s WebGL engine, clear aligner biomechanics, client-side privacy, and precision diagnostic tools.
-              </p>
-            </div>
 
-            {/* Interactive Category Filter Tabs */}
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: 'all', label: 'All Topics' },
-                { id: 'biomechanics', label: 'Biomechanics' },
-                { id: 'security', label: 'Privacy & HIPAA' },
-                { id: 'compatibility', label: 'Compatibility' },
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id as CategoryFilter)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-                    activeCategory === cat.id
-                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                  }`}
+              {/* Interactive Category Filter Tabs */}
+              <div className="flex flex-wrap gap-2 my-5">
+                {[
+                  { id: 'all', label: 'All Topics' },
+                  { id: 'biomechanics', label: 'Biomechanics' },
+                  { id: 'security', label: 'Privacy & HIPAA' },
+                  { id: 'compatibility', label: 'Compatibility' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id as CategoryFilter)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      activeCategory === cat.id
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* "Need More Help?" Community Card */}
+              <div className="p-5 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">Have a custom requirement?</h4>
+                    <p className="text-[11px] text-slate-500">Contact the author or report an issue</p>
+                  </div>
+                </div>
+                
+                <a
+                  href="https://github.com/Sonu-Thomas-001/AlignView-3D/issues"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all"
                 >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            {/* "Need More Help?" Community Card */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                  <MessageSquare className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Have a custom requirement?</h4>
-                  <p className="text-xs text-slate-500">Ask the community or open an issue</p>
-                </div>
+                  <span>Open GitHub Issues</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
               </div>
-              
-              <a
-                href="https://github.com/Sonu-Thomas-001/AlignView-3D/issues"
-                target="_blank"
-                rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all"
-              >
-                <span>Visit GitHub Discussions</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            </ScrollReveal>
           </div>
 
           {/* Right Column (7 Cols): Rich Animated Accordion List */}
-          <div className="lg:col-span-7 space-y-4">
-            {filteredFaqs.map((faq) => {
+          <div className="lg:col-span-7 space-y-3.5">
+            {filteredFaqs.map((faq, idx) => {
               const isOpen = openIndex === faq.id;
               return (
-                <div
-                  key={faq.id}
-                  className={`rounded-3xl border transition-all duration-200 overflow-hidden ${
-                    isOpen
-                      ? 'bg-white border-blue-500/80 shadow-lg shadow-blue-500/5 ring-2 ring-blue-500/10'
-                      : 'bg-white/80 hover:bg-white border-slate-200/90 shadow-sm'
-                  }`}
+                <ScrollReveal 
+                  key={faq.id} 
+                  animation="fade-up" 
+                  delay={idx * 60}
+                  duration={450}
                 >
-                  {/* Accordion Question Trigger */}
-                  <button
-                    onClick={() => toggle(faq.id)}
-                    className="w-full p-5 sm:p-6 text-left flex items-start justify-between gap-4 focus:outline-none"
+                  <div
+                    className={`rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                      isOpen
+                        ? 'bg-white border-blue-500/80 shadow-md shadow-blue-500/5 ring-1 ring-blue-500/10'
+                        : 'bg-white/80 hover:bg-white border-slate-200/90 shadow-2xs'
+                    }`}
                   >
-                    <div className="flex items-start gap-3.5">
-                      <div className={`p-2 rounded-xl shrink-0 mt-0.5 transition-colors ${
-                        isOpen ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {faq.icon}
+                    {/* Accordion Question Trigger */}
+                    <button
+                      onClick={() => toggle(faq.id)}
+                      className="w-full p-4 sm:p-5 text-left flex items-start justify-between gap-4 focus:outline-none"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-1.5 rounded-xl shrink-0 mt-0.5 transition-colors ${
+                          isOpen ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {faq.icon}
+                        </div>
+                        <span className={`text-xs sm:text-sm font-bold tracking-tight transition-colors ${
+                          isOpen ? 'text-blue-900' : 'text-slate-900'
+                        }`}>
+                          {faq.question}
+                        </span>
                       </div>
-                      <span className={`text-sm sm:text-base font-bold tracking-tight transition-colors ${
-                        isOpen ? 'text-blue-900' : 'text-slate-900'
+
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
+                        isOpen ? 'rotate-180 bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
                       }`}>
-                        {faq.question}
-                      </span>
-                    </div>
-
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-                      isOpen ? 'rotate-180 bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
-                  </button>
-
-                  {/* Accordion Expanded Content */}
-                  {isOpen && (
-                    <div className="px-6 pb-6 sm:px-7 sm:pb-7 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-4 animate-in fade-in duration-200 space-y-4">
-                      <p>{faq.answer}</p>
-
-                      {/* Highlight Checklist Tags */}
-                      <div className="pt-2 flex flex-wrap gap-2">
-                        {faq.highlights.map((h, i) => (
-                          <div 
-                            key={i} 
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] font-semibold text-slate-700"
-                          >
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span>{h}</span>
-                          </div>
-                        ))}
+                        <ChevronDown className="w-3.5 h-3.5" />
                       </div>
-                    </div>
-                  )}
-                </div>
+                    </button>
+
+                    {/* Accordion Expanded Content */}
+                    {isOpen && (
+                      <div className="px-5 pb-5 sm:px-6 sm:pb-6 text-xs text-slate-600 leading-relaxed border-t border-slate-100 pt-3.5 animate-in fade-in duration-200 space-y-3">
+                        <p>{faq.answer}</p>
+
+                        {/* Highlight Checklist Tags */}
+                        <div className="pt-1.5 flex flex-wrap gap-1.5">
+                          {faq.highlights.map((h, i) => (
+                            <div 
+                              key={i} 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200/70 text-[10px] font-semibold text-slate-700"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span>{h}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollReveal>
               );
             })}
           </div>
