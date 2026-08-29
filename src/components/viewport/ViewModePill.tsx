@@ -27,22 +27,21 @@ const LowerToothIcon = ({ className }: { className?: string }) => (
 interface ModeOption {
   id: ViewMode;
   label: string;
-  shortLabel: string;
   icon: React.ReactNode;
 }
 
 const MODES: ModeOption[] = [
-  { id: 'both', label: 'Both Arches', shortLabel: 'Both', icon: <ToothIcon className="w-3.5 h-3.5" /> },
-  { id: 'upper', label: 'Upper Only', shortLabel: 'Upper', icon: <UpperToothIcon className="w-3.5 h-3.5" /> },
-  { id: 'lower', label: 'Lower Only', shortLabel: 'Lower', icon: <LowerToothIcon className="w-3.5 h-3.5" /> },
-  { id: 'split', label: 'Split View', shortLabel: 'Split', icon: <Columns2 className="w-3.5 h-3.5" /> },
+  { id: 'both', label: 'Both Arches', icon: <ToothIcon className="w-3.5 h-3.5" /> },
+  { id: 'upper', label: 'Upper Only', icon: <UpperToothIcon className="w-3.5 h-3.5" /> },
+  { id: 'lower', label: 'Lower Only', icon: <LowerToothIcon className="w-3.5 h-3.5" /> },
+  { id: 'split', label: 'Split View', icon: <Columns2 className="w-3.5 h-3.5" /> },
 ];
 
 export const ViewModePill: React.FC = () => {
   const { viewMode, setViewMode } = useViewerStore();
 
   return (
-    <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 select-none max-w-[90vw] overflow-x-auto">
+    <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 select-none max-w-[calc(100%-110px)] sm:max-w-none">
       <div className="bg-white/95 backdrop-blur-md rounded-full shadow-floating border border-slate-200/80 p-0.5 sm:p-1 flex items-center gap-0.5 sm:gap-1">
         {MODES.map((mode) => {
           const isActive = viewMode === mode.id;
@@ -51,15 +50,15 @@ export const ViewModePill: React.FC = () => {
               key={mode.id}
               id={`view-mode-btn-${mode.id}`}
               onClick={() => setViewMode(mode.id)}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all shrink-0 ${
+              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium transition-all shrink-0 ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
+              title={mode.label}
             >
               {mode.icon}
-              <span className="hidden sm:inline">{mode.label}</span>
-              <span className="sm:hidden">{mode.shortLabel}</span>
+              <span className="hidden md:inline">{mode.label}</span>
             </button>
           );
         })}
