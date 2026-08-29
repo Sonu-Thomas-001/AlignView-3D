@@ -2,7 +2,7 @@
 
 > **Next-Generation 3D Dental STL Previewer & Clear Aligner Treatment Progression Viewer**
 
-[![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-r167-black?style=flat-square&logo=three.js)](https://threejs.org/)
 [![React Three Fiber](https://img.shields.io/badge/R3F-8.16-blueviolet?style=flat-square)](https://docs.pmnd.rs/react-three-fiber/)
