@@ -17,18 +17,11 @@ import {
 import { useViewerStore } from '@/store/useViewerStore';
 
 const AppLogoTooth = () => (
-  <svg 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="#2563EB" 
-    strokeWidth="2.2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className="w-7 h-7 sm:w-8 sm:h-8"
-  >
-    <path d="M12 3C8.5 3 6 5 6 8.5c0 4 2 6 2.5 10 .5 4 3 4.5 3.5 4.5s3-.5 3.5-4.5c.5-4 2.5-6 2.5-10C18 5 15.5 3 12 3z" />
-    <path d="M12 3v5" />
-  </svg>
+  <img 
+    src="/favicon.png" 
+    alt="AlignView 3D" 
+    className="w-7 h-7 sm:w-8 sm:h-8 object-contain" 
+  />
 );
 
 export const Header: React.FC = () => {
