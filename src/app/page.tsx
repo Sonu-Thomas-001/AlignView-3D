@@ -7,7 +7,6 @@ import { MetricsSection } from '@/components/landing/MetricsSection';
 import { BentoGridSection } from '@/components/landing/BentoGridSection';
 import { WorkflowSection } from '@/components/landing/WorkflowSection';
 import { BeforeAfterSection } from '@/components/landing/BeforeAfterSection';
-import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { CtaSection } from '@/components/landing/CtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
@@ -34,9 +33,6 @@ export default function LandingPage() {
 
         {/* Interactive Before / After Smile Alignment Slider */}
         <BeforeAfterSection />
-
-        {/* Comparison Table: AlignView 3D vs. Legacy CAD */}
-        <ComparisonSection />
 
         {/* Frequently Asked Questions Accordion */}
         <FaqSection />

@@ -45,7 +45,6 @@ export const LandingNavbar: React.FC = () => {
   const navLinks = [
     { label: 'Features', href: '#features' },
     { label: 'Workflow', href: '#workflow' },
-    { label: 'Comparison', href: '#comparison' },
     { label: 'Metrics', href: '#metrics' },
     { label: 'FAQ', href: '#faq' },
   ];
