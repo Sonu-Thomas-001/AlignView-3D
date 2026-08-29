@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint } from '@/types/dental';
+import { sortSTLFilesByStage } from '@/utils/stlParser';
 
 const INITIAL_UPPER_FILES: STLFileInfo[] = Array.from({ length: 16 }, (_, i) => {
   const num = (i + 1).toString().padStart(2, '0');
@@ -74,9 +75,13 @@ interface ViewerState {
   measurements: Measurement[];
   pendingMeasurementPoint: MeasurementPoint | null;
   
+  // Patient Case Metadata
+  patientName: string;
+  setPatientName: (name: string) => void;
+
   // Upload modal
   isUploadModalOpen: boolean;
-  uploadArchTarget: 'upper' | 'lower';
+  uploadArchTarget: 'upper' | 'lower' | 'auto';
 
   // Responsive Mobile Drawers
   activeMobileDrawer: 'upper' | 'lower' | null;
@@ -118,13 +123,19 @@ interface ViewerState {
   addMeasurementPoint: (pt: MeasurementPoint) => void;
   clearMeasurements: () => void;
   
-  openUploadModal: (arch: 'upper' | 'lower') => void;
+  openUploadModal: (arch?: 'upper' | 'lower' | 'auto') => void;
   closeUploadModal: () => void;
   addCustomSTL: (arch: 'upper' | 'lower', file: STLFileInfo) => void;
+  addBatchSTLs: (payload: { patientName?: string; upperFiles?: STLFileInfo[]; lowerFiles?: STLFileInfo[]; replaceExisting?: boolean }) => void;
   deleteSTL: (arch: 'upper' | 'lower', id: string) => void;
+  deleteAllSTLs: (arch: 'upper' | 'lower') => void;
+  resetDefaultSTLs: (arch?: 'upper' | 'lower') => void;
 }
 
 export const useViewerStore = create<ViewerState>((set, get) => ({
+  patientName: 'Krishnapriya',
+  setPatientName: (name) => set({ patientName: name }),
+
   upperFiles: INITIAL_UPPER_FILES,
   lowerFiles: INITIAL_LOWER_FILES,
   selectedUpperId: 'upper_01',
@@ -154,7 +165,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   pendingMeasurementPoint: null,
   
   isUploadModalOpen: false,
-  uploadArchTarget: 'upper',
+  uploadArchTarget: 'auto',
   activeMobileDrawer: null,
 
   setActiveMobileDrawer: (drawer) => set({ activeMobileDrawer: drawer }),
@@ -292,36 +303,156 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   
   clearMeasurements: () => set({ measurements: [], pendingMeasurementPoint: null }),
   
-  openUploadModal: (arch) => set({ isUploadModalOpen: true, uploadArchTarget: arch }),
+  openUploadModal: (arch = 'auto') => set({ isUploadModalOpen: true, uploadArchTarget: arch }),
   closeUploadModal: () => set({ isUploadModalOpen: false }),
   
   addCustomSTL: (arch, file) => {
     if (arch === 'upper') {
-      set((state) => ({
-        upperFiles: [file, ...state.upperFiles],
+      const next = sortSTLFilesByStage([file, ...get().upperFiles]);
+      set({
+        upperFiles: next,
         selectedUpperId: file.id,
-      }));
+      });
     } else {
-      set((state) => ({
-        lowerFiles: [file, ...state.lowerFiles],
+      const next = sortSTLFilesByStage([file, ...get().lowerFiles]);
+      set({
+        lowerFiles: next,
         selectedLowerId: file.id,
-      }));
+      });
     }
+  },
+
+  addBatchSTLs: ({ patientName, upperFiles = [], lowerFiles = [], replaceExisting = true }) => {
+    const currentUpper = replaceExisting ? [] : get().upperFiles;
+    const currentLower = replaceExisting ? [] : get().lowerFiles;
+
+    const mergedUpper = sortSTLFilesByStage([...currentUpper, ...upperFiles]);
+    const mergedLower = sortSTLFilesByStage([...currentLower, ...lowerFiles]);
+
+    // Calculate maximum treatment stage
+    const maxUpperStage = mergedUpper.reduce((max, f) => Math.max(max, f.stage || 0), 0);
+    const maxLowerStage = mergedLower.reduce((max, f) => Math.max(max, f.stage || 0), 0);
+    const calculatedTotalSteps = Math.max(maxUpperStage, maxLowerStage, mergedUpper.length, mergedLower.length, 1);
+
+    const firstUpper = mergedUpper[0];
+    const firstLower = mergedLower[0];
+
+    const activeStatsFile = get().viewMode === 'lower' ? (firstLower || firstUpper) : (firstUpper || firstLower);
+
+    set((state) => ({
+      upperFiles: mergedUpper,
+      lowerFiles: mergedLower,
+      selectedUpperId: firstUpper ? firstUpper.id : '',
+      selectedLowerId: firstLower ? firstLower.id : '',
+      totalSteps: calculatedTotalSteps,
+      currentStep: 1,
+      patientName: patientName || state.patientName,
+      ...(activeStatsFile ? {
+        modelStats: {
+          vertices: activeStatsFile.verticesCount,
+          triangles: activeStatsFile.trianglesCount,
+          width: activeStatsFile.dimensions.width,
+          depth: activeStatsFile.dimensions.depth,
+          height: activeStatsFile.dimensions.height,
+        }
+      } : {})
+    }));
   },
   
   deleteSTL: (arch, id) => {
     if (arch === 'upper') {
       const next = get().upperFiles.filter(f => f.id !== id);
+      const nextSelectedId = next.length > 0 ? next[0].id : '';
+      const activeFile = next.find(f => f.id === nextSelectedId);
       set({ 
         upperFiles: next,
-        selectedUpperId: next.length > 0 ? next[0].id : '',
+        selectedUpperId: nextSelectedId,
+        ...(next.length === 0 && get().viewMode === 'upper' ? {
+          modelStats: { vertices: 0, triangles: 0, width: 0, depth: 0, height: 0 }
+        } : activeFile ? {
+          modelStats: {
+            vertices: activeFile.verticesCount,
+            triangles: activeFile.trianglesCount,
+            width: activeFile.dimensions.width,
+            depth: activeFile.dimensions.depth,
+            height: activeFile.dimensions.height,
+          }
+        } : {})
       });
     } else {
       const next = get().lowerFiles.filter(f => f.id !== id);
+      const nextSelectedId = next.length > 0 ? next[0].id : '';
+      const activeFile = next.find(f => f.id === nextSelectedId);
       set({ 
         lowerFiles: next,
-        selectedLowerId: next.length > 0 ? next[0].id : '',
+        selectedLowerId: nextSelectedId,
+        ...(next.length === 0 && get().viewMode === 'lower' ? {
+          modelStats: { vertices: 0, triangles: 0, width: 0, depth: 0, height: 0 }
+        } : activeFile ? {
+          modelStats: {
+            vertices: activeFile.verticesCount,
+            triangles: activeFile.trianglesCount,
+            width: activeFile.dimensions.width,
+            depth: activeFile.dimensions.depth,
+            height: activeFile.dimensions.height,
+          }
+        } : {})
       });
+    }
+  },
+
+  deleteAllSTLs: (arch) => {
+    if (arch === 'upper') {
+      set({
+        upperFiles: [],
+        selectedUpperId: '',
+        ...(get().viewMode === 'upper' ? {
+          modelStats: { vertices: 0, triangles: 0, width: 0, depth: 0, height: 0 }
+        } : {})
+      });
+    } else {
+      set({
+        lowerFiles: [],
+        selectedLowerId: '',
+        ...(get().viewMode === 'lower' ? {
+          modelStats: { vertices: 0, triangles: 0, width: 0, depth: 0, height: 0 }
+        } : {})
+      });
+    }
+  },
+
+  resetDefaultSTLs: (arch) => {
+    if (!arch || arch === 'upper') {
+      const first = INITIAL_UPPER_FILES[0];
+      set((state) => ({
+        upperFiles: INITIAL_UPPER_FILES,
+        selectedUpperId: first ? first.id : '',
+        ...(state.viewMode === 'upper' && first ? {
+          modelStats: {
+            vertices: first.verticesCount,
+            triangles: first.trianglesCount,
+            width: first.dimensions.width,
+            depth: first.dimensions.depth,
+            height: first.dimensions.height,
+          }
+        } : {})
+      }));
+    }
+    if (!arch || arch === 'lower') {
+      const first = INITIAL_LOWER_FILES[0];
+      set((state) => ({
+        lowerFiles: INITIAL_LOWER_FILES,
+        selectedLowerId: first ? first.id : '',
+        ...(state.viewMode === 'lower' && first ? {
+          modelStats: {
+            vertices: first.verticesCount,
+            triangles: first.trianglesCount,
+            width: first.dimensions.width,
+            depth: first.dimensions.depth,
+            height: first.dimensions.height,
+          }
+        } : {})
+      }));
     }
   },
 }));

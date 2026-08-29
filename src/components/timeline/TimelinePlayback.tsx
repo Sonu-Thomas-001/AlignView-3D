@@ -109,19 +109,37 @@ export const TimelinePlayback: React.FC = () => {
             />
           </div>
 
-          {/* Discrete Stage Tick Dots */}
+          {/* Discrete Stage Tick Dots (shown cleanly without crowding) */}
           <div className="absolute inset-x-0 flex justify-between pointer-events-none px-1">
-            {Array.from({ length: Math.min(totalSteps, 48) }).map((_, i) => {
-              const isPastOrCurrent = i + 1 <= currentStep;
-              return (
-                <div
-                  key={i}
-                  className={`w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full transition-colors ${
-                    isPastOrCurrent ? 'bg-blue-600 ring-1 sm:ring-2 ring-white' : 'bg-slate-200'
-                  }`}
-                />
-              );
-            })}
+            {totalSteps <= 16 ? (
+              Array.from({ length: totalSteps }).map((_, i) => {
+                const isPastOrCurrent = i + 1 <= currentStep;
+                return (
+                  <div
+                    key={i}
+                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                      isPastOrCurrent ? 'bg-blue-600 ring-1 ring-white' : 'bg-slate-300'
+                    }`}
+                  />
+                );
+              })
+            ) : (
+              // When steps > 16, show strategic interval ticks (every 5 steps + first & last)
+              Array.from({ length: totalSteps }).map((_, i) => {
+                const stepNum = i + 1;
+                const isMajor = stepNum === 1 || stepNum === totalSteps || stepNum % 5 === 0;
+                if (!isMajor) return <div key={i} className="w-0.5" />;
+                const isPastOrCurrent = stepNum <= currentStep;
+                return (
+                  <div
+                    key={i}
+                    className={`w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full transition-colors ${
+                      isPastOrCurrent ? 'bg-blue-600 ring-1 ring-white' : 'bg-slate-300'
+                    }`}
+                  />
+                );
+              })
+            )}
           </div>
 
           {/* Range Input for dragging */}

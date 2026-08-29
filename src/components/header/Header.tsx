@@ -34,6 +34,7 @@ export const Header: React.FC = () => {
     toggleMobileDrawer,
     upperFiles,
     lowerFiles,
+    patientName,
   } = useViewerStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -55,7 +56,7 @@ export const Header: React.FC = () => {
 
   return (
     <header className="h-16 px-3 sm:px-6 bg-white border-b border-slate-200/90 flex items-center justify-between select-none z-30 shrink-0 gap-2">
-      {/* Left: Brand Identity + Mobile Arch Toggles */}
+      {/* Left: Brand Identity + Patient Badge + Mobile Arch Toggles */}
       <div className="flex items-center gap-2 sm:gap-3.5">
         <a 
           href="/" 
@@ -65,9 +66,24 @@ export const Header: React.FC = () => {
           <img 
             src="/main-logo.png" 
             alt="AlignView 3D Logo" 
-            className="h-9 sm:h-10 w-auto max-w-[200px] sm:max-w-[240px] object-contain group-hover:scale-105 transition-transform" 
+            className="h-9 sm:h-10 w-auto max-w-[180px] sm:max-w-[220px] object-contain group-hover:scale-105 transition-transform" 
           />
         </a>
+
+        {/* Patient Case Badge */}
+        {patientName && (
+          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-xl text-xs shadow-2xs">
+            <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+              <UserCheck className="w-3 h-3" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-slate-800 tracking-tight">{patientName}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">
+                {upperFiles.length + lowerFiles.length} STLs
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Mobile/Tablet Arch Sidebar Trigger Pills (visible below lg screen) */}
         <div className="flex lg:hidden items-center gap-1.5 ml-1 sm:ml-2">
@@ -99,15 +115,15 @@ export const Header: React.FC = () => {
 
       {/* Right: Action Buttons + Logout */}
       <div className="flex items-center gap-1.5 sm:gap-2.5">
-        {/* Upload Custom STL */}
+        {/* Upload Custom STL (Universal Batch) */}
         <button
           id="btn-header-upload"
-          onClick={() => openUploadModal('upper')}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-all shadow-sm"
-          title="Upload custom STL file"
+          onClick={() => openUploadModal('auto')}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200/80 rounded-lg transition-all shadow-xs"
+          title="Universal Batch Upload STL Files (Auto Upper/Lower)"
         >
-          <Upload className="w-3.5 h-3.5 text-slate-500" />
-          <span className="hidden sm:inline">Upload STL</span>
+          <Upload className="w-3.5 h-3.5 text-blue-600" />
+          <span className="hidden sm:inline">Upload STLs</span>
         </button>
 
         {/* Reset View */}

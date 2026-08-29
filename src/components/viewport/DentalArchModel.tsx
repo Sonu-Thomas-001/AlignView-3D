@@ -37,9 +37,11 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId), [upperFiles, selectedUpperId]);
   const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId), [lowerFiles, selectedLowerId]);
 
-  // Determine visibility based on viewMode
-  const showUpper = isSecondarySplit ? true : (viewMode === 'both' || viewMode === 'upper' || viewMode === 'split');
-  const showLower = isSecondarySplit ? true : (viewMode === 'both' || viewMode === 'lower' || viewMode === 'split');
+  // Determine visibility based on viewMode and whether arch files exist
+  const hasUpper = upperFiles.length > 0;
+  const hasLower = lowerFiles.length > 0;
+  const showUpper = hasUpper && (isSecondarySplit ? true : (viewMode === 'both' || viewMode === 'upper' || viewMode === 'split'));
+  const showLower = hasLower && (isSecondarySplit ? true : (viewMode === 'both' || viewMode === 'lower' || viewMode === 'split'));
 
   // Pre-generate tooth geometries for upper and lower
   const upperGeometries = useMemo(() => {
@@ -70,23 +72,44 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     return clippingPlane ? [clippingPlane] : [];
   }, [clippingPlane]);
 
-  const { toothMaterial, gingivaMaterial } = useMemo(() => {
+  const { 
+    toothMaterial, 
+    gingivaMaterial, 
+    upperCustomMaterial, 
+    lowerCustomMaterial 
+  } = useMemo(() => {
     const isWireframe = renderMode === 'wireframe';
     const isSolid = renderMode === 'solid';
     const isXRay = renderMode === 'xray';
 
     if (isWireframe) {
-      const wireMat = new THREE.MeshBasicMaterial({
+      const upperWire = new THREE.MeshBasicMaterial({
         color: '#2563EB',
         wireframe: true,
         clippingPlanes: clippingPlanesArray,
         clipShadows: true,
       });
-      return { toothMaterial: wireMat, gingivaMaterial: wireMat };
+      const lowerWire = new THREE.MeshBasicMaterial({
+        color: '#059669',
+        wireframe: true,
+        clippingPlanes: clippingPlanesArray,
+        clipShadows: true,
+      });
+      return { 
+        toothMaterial: upperWire, 
+        gingivaMaterial: upperWire,
+        upperCustomMaterial: upperWire,
+        lowerCustomMaterial: lowerWire
+      };
     }
 
     if (isSolid) {
-      const solidTooth = new THREE.MeshLambertMaterial({
+      const solidUpper = new THREE.MeshLambertMaterial({
+        color: '#F1F5F9',
+        clippingPlanes: clippingPlanesArray,
+        clipShadows: true,
+      });
+      const solidLower = new THREE.MeshLambertMaterial({
         color: '#E2E8F0',
         clippingPlanes: clippingPlanesArray,
         clipShadows: true,
@@ -96,17 +119,32 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         clippingPlanes: clippingPlanesArray,
         clipShadows: true,
       });
-      return { toothMaterial: solidTooth, gingivaMaterial: solidGingiva };
+      return { 
+        toothMaterial: solidUpper, 
+        gingivaMaterial: solidGingiva,
+        upperCustomMaterial: solidUpper,
+        lowerCustomMaterial: solidLower
+      };
     }
 
     if (isXRay) {
-      const xrayTooth = new THREE.MeshPhysicalMaterial({
-        color: '#93C5FD',
+      const xrayUpper = new THREE.MeshPhysicalMaterial({
+        color: '#7DD3FC',
         transparent: true,
-        opacity: 0.45,
-        transmission: 0.7,
-        roughness: 0.1,
-        metalness: 0.1,
+        opacity: 0.55,
+        transmission: 0.65,
+        roughness: 0.12,
+        metalness: 0.08,
+        depthWrite: false,
+        clippingPlanes: clippingPlanesArray,
+      });
+      const xrayLower = new THREE.MeshPhysicalMaterial({
+        color: '#6EE7B7',
+        transparent: true,
+        opacity: 0.55,
+        transmission: 0.65,
+        roughness: 0.12,
+        metalness: 0.08,
         depthWrite: false,
         clippingPlanes: clippingPlanesArray,
       });
@@ -119,23 +157,26 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         depthWrite: false,
         clippingPlanes: clippingPlanesArray,
       });
-      return { toothMaterial: xrayTooth, gingivaMaterial: xrayGingiva };
+      return { 
+        toothMaterial: xrayUpper, 
+        gingivaMaterial: xrayGingiva,
+        upperCustomMaterial: xrayUpper,
+        lowerCustomMaterial: xrayLower
+      };
     }
 
-    // Default: 'shaded' realistic dental PBR materials
-    // Teeth: Natural pearlescent enamel with high clearcoat gloss
+    // Default: 'shaded' - Realistic Dental Porcelain & Enamel with Studio Clearcoat
     const shadedTooth = new THREE.MeshPhysicalMaterial({
       color: '#FFFFFF',
       roughness: 0.16,
       metalness: 0.02,
-      clearcoat: 0.8,
+      clearcoat: 0.85,
       clearcoatRoughness: 0.1,
       reflectivity: 0.9,
       clippingPlanes: clippingPlanesArray,
       clipShadows: true,
     });
 
-    // Gingiva: Realistic anatomical coral-pink tissue
     const shadedGingiva = new THREE.MeshStandardMaterial({
       color: '#E27885', // natural coral gum pink
       roughness: 0.38,
@@ -144,7 +185,36 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       clipShadows: true,
     });
 
-    return { toothMaterial: shadedTooth, gingivaMaterial: shadedGingiva };
+    // Custom Upper Arch (Pure Pearlescent Enamel)
+    const upperCustom = new THREE.MeshPhysicalMaterial({
+      color: '#FCFDFE',
+      roughness: 0.18,
+      metalness: 0.02,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.1,
+      reflectivity: 0.9,
+      clippingPlanes: clippingPlanesArray,
+      clipShadows: true,
+    });
+
+    // Custom Lower Arch (Natural Enamel with subtle distinction)
+    const lowerCustom = new THREE.MeshPhysicalMaterial({
+      color: '#F6F9FD',
+      roughness: 0.18,
+      metalness: 0.02,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.1,
+      reflectivity: 0.9,
+      clippingPlanes: clippingPlanesArray,
+      clipShadows: true,
+    });
+
+    return { 
+      toothMaterial: shadedTooth, 
+      gingivaMaterial: shadedGingiva,
+      upperCustomMaterial: upperCustom,
+      lowerCustomMaterial: lowerCustom
+    };
   }, [renderMode, clippingPlanesArray]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -156,15 +226,21 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     }
   };
 
+  // Position offsets:
+  // When both arches are visible, place upper slightly above and lower slightly below occlusal plane
+  const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
+  const upperPosY = isBothVisible ? 3.5 : 0;
+  const lowerPosY = isBothVisible ? -3.5 : 0;
+
   return (
     <group ref={groupRef} onPointerDown={handlePointerDown}>
       {/* UPPER ARCH */}
       {showUpper && (
-        <group name="UpperArch">
+        <group name="UpperArch" position={[0, upperPosY, 0]}>
           {selectedUpperFile?.customBufferGeometry ? (
             <mesh
               geometry={selectedUpperFile.customBufferGeometry}
-              material={toothMaterial}
+              material={upperCustomMaterial}
               castShadow
               receiveShadow
             />
@@ -199,11 +275,11 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
       {/* LOWER ARCH */}
       {showLower && (
-        <group name="LowerArch">
+        <group name="LowerArch" position={[0, lowerPosY, 0]}>
           {selectedLowerFile?.customBufferGeometry ? (
             <mesh
               geometry={selectedLowerFile.customBufferGeometry}
-              material={toothMaterial}
+              material={lowerCustomMaterial}
               castShadow
               receiveShadow
             />

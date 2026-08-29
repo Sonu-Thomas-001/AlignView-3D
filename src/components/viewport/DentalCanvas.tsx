@@ -26,19 +26,19 @@ const CameraController: React.FC = () => {
   useEffect(() => {
     if (!cameraTargetView) return;
 
-    const dist = 76;
+    const dist = 86;
     if (cameraTargetView === 'front' || cameraTargetView === 'reset') {
-      targetPos.current = new THREE.Vector3(0, 1, dist);
+      targetPos.current = new THREE.Vector3(0, 4, dist);
     } else if (cameraTargetView === 'back') {
-      targetPos.current = new THREE.Vector3(0, 1, -dist);
+      targetPos.current = new THREE.Vector3(0, 4, -dist);
     } else if (cameraTargetView === 'top') {
       targetPos.current = new THREE.Vector3(0, dist, 0.001);
     } else if (cameraTargetView === 'bottom') {
       targetPos.current = new THREE.Vector3(0, -dist, 0.001);
     } else if (cameraTargetView === 'left') {
-      targetPos.current = new THREE.Vector3(-dist, 1, 0);
+      targetPos.current = new THREE.Vector3(-dist, 4, 0);
     } else if (cameraTargetView === 'right') {
-      targetPos.current = new THREE.Vector3(dist, 1, 0);
+      targetPos.current = new THREE.Vector3(dist, 4, 0);
     }
   }, [cameraTargetView, cameraTriggerCount, resetViewTriggerCount]);
 
@@ -249,7 +249,7 @@ export const DentalCanvas: React.FC = () => {
         /* Standard Unified Viewport */
         <Canvas
           shadows
-          camera={{ position: [0, 1, 74], fov: 35 }}
+          camera={{ position: [0, 4, 86], fov: 38 }}
           gl={{ antialias: true, preserveDrawingBuffer: true, localClippingEnabled: true }}
           className="cursor-grab active:cursor-grabbing"
         >
