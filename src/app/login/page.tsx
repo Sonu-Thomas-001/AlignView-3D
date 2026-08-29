@@ -87,8 +87,8 @@ export default function LoginPage() {
               <div className="flex justify-center mb-2">
                 <img 
                   src="/main-logo.png" 
-                  alt="AlignView 3D" 
-                  className="h-12 sm:h-14 w-auto object-contain" 
+                  alt="AlignView 3D Logo" 
+                  className="h-14 sm:h-16 w-auto max-w-[260px] object-contain drop-shadow-sm" 
                 />
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">

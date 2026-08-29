@@ -55,7 +55,7 @@ export const LandingNavbar: React.FC = () => {
           <img 
             src="/main-logo.png" 
             alt="AlignView 3D Logo" 
-            className="h-8 sm:h-9 w-auto max-w-[180px] sm:max-w-[220px] object-contain group-hover:scale-105 transition-transform" 
+            className="h-9 sm:h-11 w-auto max-w-[210px] sm:max-w-[260px] object-contain group-hover:scale-105 transition-transform" 
           />
         </Link>
 

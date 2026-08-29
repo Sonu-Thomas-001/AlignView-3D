@@ -85,9 +85,9 @@ export const LandingFooter: React.FC = () => {
             <div className="lg:col-span-2 space-y-3.5">
               <Link href="/" className="inline-flex items-center gap-2.5 group">
                 <img 
-                  src="/main-logo.png" 
+                  src="/main-logo-light.png" 
                   alt="AlignView 3D Logo" 
-                  className="h-9 w-auto max-w-[200px] object-contain group-hover:scale-105 transition-transform" 
+                  className="h-11 sm:h-12 w-auto max-w-[240px] object-contain group-hover:scale-105 transition-transform" 
                 />
               </Link>
 
