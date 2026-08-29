@@ -18,14 +18,6 @@ import {
 } from 'lucide-react';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
-const AppLogoTooth = () => (
-  <img 
-    src="/favicon.png" 
-    alt="AlignView 3D" 
-    className="w-7 h-7 object-contain" 
-  />
-);
-
 export const LandingFooter: React.FC = () => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -48,7 +40,7 @@ export const LandingFooter: React.FC = () => {
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight font-display">
                   Ready to inspect your dental STL models?
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -92,7 +84,7 @@ export const LandingFooter: React.FC = () => {
               </Link>
 
               <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
-                Proprietary WebGL dental STL previewer & 32-stage orthodontic aligner simulator. A product of MidCell Studios, engineered by Sonu Thomas.
+                Proprietary WebGL dental STL previewer & continuous multi-stage orthodontic aligner simulator. A product of MidCell Studios.
               </p>
 
               {/* Live Operational Status Badge */}
@@ -118,7 +110,7 @@ export const LandingFooter: React.FC = () => {
 
             {/* Col 3: Product Capabilities */}
             <div>
-              <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3.5 flex items-center gap-1.5">
+              <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3.5 flex items-center gap-1.5 font-display">
                 <span>Studio & Tools</span>
               </h4>
               <ul className="space-y-2 text-xs">
@@ -131,7 +123,7 @@ export const LandingFooter: React.FC = () => {
                 <li>
                   <Link href="/studio" className="hover:text-white transition-colors flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-purple-400" />
-                    <span>32-Stage Aligner</span>
+                    <span>Multi-Stage Simulation</span>
                   </Link>
                 </li>
                 <li>
@@ -157,7 +149,7 @@ export const LandingFooter: React.FC = () => {
 
             {/* Col 4: Platform Navigation */}
             <div>
-              <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3.5">
+              <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3.5 font-display">
                 Platform
               </h4>
               <ul className="space-y-2 text-xs">
@@ -169,7 +161,7 @@ export const LandingFooter: React.FC = () => {
 
             {/* Col 5: Legal & Security Policies */}
             <div>
-              <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3.5">
+              <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3.5 font-display">
                 Legal & Trust
               </h4>
               <ul className="space-y-2 text-xs text-slate-400">
@@ -204,7 +196,7 @@ export const LandingFooter: React.FC = () => {
         {/* Bottom Copyright & Back to Top Bar */}
         <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-center sm:text-left">
-            <span>© {new Date().getFullYear()} AlignView 3D by Sonu Thomas.</span>
+            <span>© {new Date().getFullYear()} AlignView 3D.</span>
             <span className="hidden sm:inline">•</span>
             <span className="text-slate-400 font-medium">A product of MidCell Studios.</span>
             <span className="hidden sm:inline">•</span>

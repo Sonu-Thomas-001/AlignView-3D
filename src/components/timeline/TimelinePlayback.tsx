@@ -111,7 +111,7 @@ export const TimelinePlayback: React.FC = () => {
 
           {/* Discrete Stage Tick Dots */}
           <div className="absolute inset-x-0 flex justify-between pointer-events-none px-1">
-            {Array.from({ length: 32 }).map((_, i) => {
+            {Array.from({ length: Math.min(totalSteps, 48) }).map((_, i) => {
               const isPastOrCurrent = i + 1 <= currentStep;
               return (
                 <div

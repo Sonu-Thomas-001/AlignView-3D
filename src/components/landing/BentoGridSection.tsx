@@ -59,19 +59,19 @@ export const BentoGridSection: React.FC = () => {
                   </div>
 
                   <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-display text-slate-900 mb-2.5 tracking-tight">
-                    Continuous 32-Stage Aligner Simulation
+                    Continuous Multi-Stage Aligner Simulation
                   </h3>
                   <p className="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-2xl">
-                    Simulate teeth trajectory movement across all 32 clinical treatment stages. Observe individual tooth crown rotation, root torque, tipping corrections, and parabolic arch expansion at 60 FPS real-time interpolation.
+                    Simulate teeth trajectory movement across unlimited clinical treatment stages (1 to N). Observe individual tooth crown rotation, root torque, tipping corrections, and parabolic arch expansion at 60 FPS real-time interpolation.
                   </p>
                 </div>
 
                 {/* Interactive Timeline Preview Ribbon */}
                 <div className="mt-6 pt-5 border-t border-slate-100">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                    <span className="text-slate-500">Stage 01 (Crowded)</span>
-                    <span className="text-blue-600 font-extrabold">Stage 16 (Transverse Expansion)</span>
-                    <span className="text-slate-900">Stage 32 (Class I Occlusion)</span>
+                    <span className="text-slate-500">Stage 01 (Initial)</span>
+                    <span className="text-blue-600 font-extrabold">Mid-Treatment (Expansion & Torque)</span>
+                    <span className="text-slate-900">Stage N (Ideal Occlusion)</span>
                   </div>
                   <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 relative">
                     <div className="h-full bg-gradient-to-r from-blue-600 via-sky-400 to-indigo-600 rounded-full w-1/2 relative">

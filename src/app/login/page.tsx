@@ -95,7 +95,7 @@ export default function LoginPage() {
                 Clinician Portal Sign In
               </h1>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Access your orthodontic 3D workspace, 32-stage aligner timeline, and diagnostic tool suite.
+                Access your orthodontic 3D workspace, multi-stage aligner timeline, and diagnostic tool suite.
               </p>
             </div>
 
@@ -223,7 +223,7 @@ export default function LoginPage() {
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Encrypted local session • Zero server storage</span>
             </p>
-            <p>© {new Date().getFullYear()} AlignView 3D by Sonu Thomas. A product of MidCell Studios. All Rights Reserved.</p>
+            <p>© {new Date().getFullYear()} AlignView 3D. A product of MidCell Studios. All Rights Reserved.</p>
           </div>
 
         </div>

@@ -26,8 +26,8 @@ export const CtaSection: React.FC = () => {
                 Ready to Experience Precision Dental 3D in Your Browser?
               </h2>
 
-              <p className="mt-3.5 text-xs sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-                Open your dental STL files right now with continuous 32-stage treatment morphing, sub-millimeter measurements, and studio lighting.
+              <p className="mt-3.5 text-xs sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
+                Open your dental STL files right now with continuous multi-stage treatment morphing, sub-millimeter measurements, and studio lighting.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3.5">

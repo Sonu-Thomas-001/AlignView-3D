@@ -45,9 +45,9 @@ const FAQS: FaqItem[] = [
   {
     id: 'morphing',
     category: 'biomechanics',
-    question: 'How does the 32-stage clear aligner treatment morphing work?',
-    answer: 'The orthodontic engine applies parametric biomechanical trajectory equations to each tooth crown in the arch. As you scrub through stages 1 to 32, individual teeth smoothly undergo rotational torque, tipping corrections, and parabolic arch expansion at 60 frames per second.',
-    highlights: ['Smooth 60 FPS real-time interpolation', 'Rotational torque & translational simulation', 'Step-by-step playback with variable speed'],
+    question: 'How does continuous multi-stage clear aligner treatment morphing work?',
+    answer: 'The orthodontic engine applies parametric biomechanical trajectory equations to each tooth crown in the arch. As you scrub across treatment stages (from stage 1 to N), individual teeth smoothly undergo rotational torque, tipping corrections, and parabolic arch expansion at 60 frames per second.',
+    highlights: ['Smooth 60 FPS real-time interpolation', 'Unlimited N-stage treatment trajectory', 'Step-by-step playback with variable speed'],
     icon: <Layers className="w-4 h-4 text-purple-600" />,
   },
   {
@@ -70,7 +70,7 @@ const FAQS: FaqItem[] = [
     id: 'license',
     category: 'general',
     question: 'Can I copy, clone, or reuse the AlignView 3D source code?',
-    answer: 'No. AlignView 3D is a proprietary product of MidCell Studios, authored by Sonu Thomas. All intellectual property rights belong exclusively to MidCell Studios / Sonu Thomas. You are granted access to use the web application for clinical visualization, but copying, duplicating, reverse engineering, or creating unauthorized forks/commercial clones is strictly prohibited under our Terms of Service.',
+    answer: 'No. AlignView 3D is a proprietary product of MidCell Studios. All intellectual property rights belong exclusively to MidCell Studios. You are granted access to use the web application for clinical visualization, but copying, duplicating, reverse engineering, or creating unauthorized forks/commercial clones is strictly prohibited under our Terms of Service.',
     highlights: ['Proprietary & All Rights Reserved', 'Code duplication & cloning strictly prohibited', 'Free to use via web interface'],
     icon: <Code2 className="w-4 h-4 text-indigo-600" />,
   },

@@ -12,7 +12,7 @@ import { ScrollReveal } from '@/components/ui/ScrollReveal';
 const TYPED_PHRASES = [
   'at the Speed of Web.',
   'in Real-Time 60 FPS WebGL.',
-  'with 32-Stage Aligner Trajectory.',
+  'with Multi-Stage Aligner Trajectory.',
   'with Sub-Millimeter Caliper Precision.',
   '100% Client-Side in Your Browser.',
 ];
@@ -90,7 +90,7 @@ export const HeroSection: React.FC = () => {
         {/* Subtitle */}
         <ScrollReveal animation="fade-up" delay={250}>
           <p className="mt-4 text-base sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
-            Inspect clinical STL arches, simulate continuous 32-stage orthodontic treatment trajectories, and perform sub-millimeter caliper measurements directly in your browser.
+            Inspect clinical STL arches, simulate continuous multi-stage orthodontic treatment trajectories, and perform sub-millimeter caliper measurements directly in your browser.
           </p>
         </ScrollReveal>
 
@@ -125,7 +125,7 @@ export const HeroSection: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>32-Stage Aligner Trajectory</span>
+              <span>Multi-Stage Aligner Trajectory</span>
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />

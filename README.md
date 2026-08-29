@@ -20,8 +20,8 @@
 - **Full Dental Occlusion**: Upper and lower horseshoe arches modeled in Class I occlusion with natural overbite/overjet.
 - **Dynamic Arch Views**: Instant toggling between **Both Arches**, **Upper Only**, **Lower Only**, and **Split View** (dual side-by-side comparative inspection).
 
-### 2. 🎬 32-Stage Aligner Treatment Progression Timeline
-- **Orthodontic Tooth Movement**: Continuous, physically accurate rotation, torque, and translational morphing across 32 treatment stages.
+### 2. 🎬 Multi-Stage Aligner Treatment Progression Timeline
+- **Orthodontic Tooth Movement**: Continuous, physically accurate rotation, torque, and translational morphing across multi-stage treatment sequences (unlimited N stages).
 - **Interactive Scrubber**: Discrete step tick marks, active progress fill, and direct stage scrubbing.
 - **Playback Controls**: Step Back (`|◀`), Play / Pause (`▶` / `⏸`), Step Forward (`▶|`), variable playback speeds (`0.5x` to `2.5x`), and loop toggle.
 
@@ -209,7 +209,7 @@ npm run start
 
 ## 📄 License & Intellectual Property
 
-AlignView 3D is a proprietary product of **MidCell Studios**, authored and engineered by **Sonu Thomas**. All rights reserved.
+AlignView 3D is a proprietary product of **MidCell Studios**. All rights reserved.
 
 Unauthorized copying, cloning, code redistribution, or creating unauthorized commercial forks is strictly prohibited under our [Proprietary License](LICENSE) and [Terms of Service](https://alignview-3d.vercel.app/terms).
 

@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     template: "%s | AlignView 3D",
   },
   description:
-    "Web-based 3D dental STL previewer & clear aligner treatment progression simulator. Continuous 32-stage orthodontic morphing, sub-millimeter caliper measurements, and multi-shader diagnostics in your browser.",
+    "Web-based 3D dental STL previewer & clear aligner treatment progression simulator. Continuous multi-stage orthodontic morphing, sub-millimeter caliper measurements, and multi-shader diagnostics in your browser.",
   keywords: [
     "3D dental STL viewer",
     "clear aligner simulation",
@@ -55,11 +55,11 @@ export const metadata: Metadata = {
   ],
   authors: [
     {
-      name: "Sonu Thomas (MidCell Studios)",
-      url: "https://github.com/Sonu-Thomas-001",
+      name: "MidCell Studios",
+      url: "https://alignview-3d.vercel.app",
     },
   ],
-  creator: "Sonu Thomas",
+  creator: "MidCell Studios",
   publisher: "MidCell Studios",
   applicationName: "AlignView 3D",
   category: "Medical / Dental Technology",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "AlignView 3D — Next-Gen 3D Dental STL Previewer & Aligner Simulator",
     description:
-      "Inspect clinical STL arches, simulate continuous 32-stage orthodontic treatment trajectories, and perform sub-millimeter measurements directly in your browser with zero installation.",
+      "Inspect clinical STL arches, simulate continuous multi-stage orthodontic treatment trajectories, and perform sub-millimeter measurements directly in your browser with zero installation.",
     url: "https://alignview-3d.vercel.app",
     siteName: "AlignView 3D",
     locale: "en_US",
@@ -84,8 +84,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AlignView 3D — Precision 3D Dental Modeling",
     description:
-      "Inspect clinical STL arches and simulate continuous 32-stage clear aligner treatments in real-time WebGL.",
-    creator: "@SonuThomas",
+      "Inspect clinical STL arches and simulate continuous multi-stage clear aligner treatments in real-time WebGL.",
+    creator: "@MidCellStudios",
   },
   robots: {
     index: true,
@@ -123,9 +123,9 @@ const jsonLdSchema = {
         "Next-generation 3D dental STL previewer and clear aligner treatment progression simulator with real-time WebGL rendering.",
       "softwareVersion": "1.0.0",
       "author": {
-        "@type": "Person",
-        "name": "Sonu Thomas",
-        "url": "https://github.com/Sonu-Thomas-001",
+        "@type": "Organization",
+        "name": "MidCell Studios",
+        "url": "https://alignview-3d.vercel.app",
       },
     },
     {
