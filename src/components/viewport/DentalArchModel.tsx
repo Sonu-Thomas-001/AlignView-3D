@@ -185,26 +185,28 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       clipShadows: true,
     });
 
-    // Custom Upper Arch (Pure Pearlescent Enamel)
+    // Custom Upper Arch (Realistic Anatomical Colors with High Gloss Clearcoat)
     const upperCustom = new THREE.MeshPhysicalMaterial({
-      color: '#FCFDFE',
-      roughness: 0.18,
+      color: '#FFFFFF',
+      vertexColors: true,
+      roughness: 0.20,
       metalness: 0.02,
-      clearcoat: 0.9,
-      clearcoatRoughness: 0.1,
-      reflectivity: 0.9,
+      clearcoat: 0.88,
+      clearcoatRoughness: 0.12,
+      reflectivity: 0.88,
       clippingPlanes: clippingPlanesArray,
       clipShadows: true,
     });
 
-    // Custom Lower Arch (Natural Enamel with subtle distinction)
+    // Custom Lower Arch (Realistic Anatomical Colors with High Gloss Clearcoat)
     const lowerCustom = new THREE.MeshPhysicalMaterial({
-      color: '#F6F9FD',
-      roughness: 0.18,
+      color: '#FFFFFF',
+      vertexColors: true,
+      roughness: 0.20,
       metalness: 0.02,
-      clearcoat: 0.9,
-      clearcoatRoughness: 0.1,
-      reflectivity: 0.9,
+      clearcoat: 0.88,
+      clearcoatRoughness: 0.12,
+      reflectivity: 0.88,
       clippingPlanes: clippingPlanesArray,
       clipShadows: true,
     });

@@ -230,5 +230,105 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
   geometry.computeVertexNormals();
   geometry.center();
 
+  // 4. Apply Realistic Anatomical Vertex Colors (Coral Pink Gums + Pearlescent White Teeth)
+  applyAnatomicalDentalColors(geometry, arch);
+
+  return geometry;
+}
+
+/**
+ * Generates natural anatomical two-tone vertex colors (Coral-Pink Gingiva and Pearlescent Enamel Teeth)
+ * with natural scalloped cervical gumline contours, matching clinical dental 3D reference renders.
+ */
+export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch: 'upper' | 'lower'): THREE.BufferGeometry {
+  geometry.computeBoundingBox();
+  const bbox = geometry.boundingBox || new THREE.Box3();
+  const minY = bbox.min.y;
+  const maxY = bbox.max.y;
+  const height = Math.max(0.001, maxY - minY);
+
+  const pos = geometry.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+
+  // Anatomical Color Palette (matching reference image)
+  // Teeth: Pearlescent Enamel White
+  const toothR = 0.985;
+  const toothG = 0.990;
+  const toothB = 1.000;
+
+  // Gingiva: Warm Organic Coral Pink
+  const gumR = 0.880;
+  const gumG = 0.435;
+  const gumB = 0.485;
+
+  // Gingival base gradient (slightly deeper at the roots/base cut)
+  const gumBaseR = 0.820;
+  const gumBaseG = 0.370;
+  const gumBaseB = 0.420;
+
+  const isUpper = arch === 'upper';
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+
+    // Normalized vertical height from 0.0 (bottom) to 1.0 (top)
+    const normY = (y - minY) / height;
+
+    // Scalloped interdental papillae curvature along the arch perimeter
+    const theta = Math.atan2(z, x);
+    const scallopWave = Math.sin(theta * 14.0) * 0.042 + Math.cos(theta * 28.0) * 0.012;
+
+    let gumFactor = 0; // 0.0 = pure tooth enamel, 1.0 = pure gingiva
+
+    if (isUpper) {
+      // Upper Jaw: Gums at Top (+Y, normY > gumline), Teeth at Bottom (-Y)
+      const gumline = 0.46 + scallopWave;
+      const transitionWidth = 0.035;
+
+      if (normY >= gumline + transitionWidth) {
+        gumFactor = 1.0;
+      } else if (normY <= gumline - transitionWidth) {
+        gumFactor = 0.0;
+      } else {
+        // Smoothstep transition
+        const t = (normY - (gumline - transitionWidth)) / (2 * transitionWidth);
+        gumFactor = t * t * (3 - 2 * t);
+      }
+    } else {
+      // Lower Jaw: Gums at Bottom (-Y, normY < gumline), Teeth at Top (+Y)
+      const gumline = 0.52 + scallopWave;
+      const transitionWidth = 0.035;
+
+      if (normY <= gumline - transitionWidth) {
+        gumFactor = 1.0;
+      } else if (normY >= gumline + transitionWidth) {
+        gumFactor = 0.0;
+      } else {
+        // Smoothstep transition
+        const t = ((gumline + transitionWidth) - normY) / (2 * transitionWidth);
+        gumFactor = t * t * (3 - 2 * t);
+      }
+    }
+
+    // Depth shading on gingiva (darker near base cut, slightly brighter near tooth neck)
+    const baseGradient = isUpper ? Math.max(0, normY - 0.5) * 2.0 : Math.max(0, 0.5 - normY) * 2.0;
+    const finalGumR = gumR * (1 - baseGradient * 0.15) + gumBaseR * (baseGradient * 0.15);
+    const finalGumG = gumG * (1 - baseGradient * 0.15) + gumBaseG * (baseGradient * 0.15);
+    const finalGumB = gumB * (1 - baseGradient * 0.15) + gumBaseB * (baseGradient * 0.15);
+
+    // Blend tooth enamel and gingiva
+    const r = toothR * (1 - gumFactor) + finalGumR * gumFactor;
+    const g = toothG * (1 - gumFactor) + finalGumG * gumFactor;
+    const b = toothB * (1 - gumFactor) + finalGumB * gumFactor;
+
+    const idx = i * 3;
+    colors[idx] = r;
+    colors[idx + 1] = g;
+    colors[idx + 2] = b;
+  }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   return geometry;
 }
