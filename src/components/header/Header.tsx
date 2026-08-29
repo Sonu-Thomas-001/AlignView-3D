@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   RotateCcw, 
   Camera, 
@@ -9,7 +10,9 @@ import {
   Download, 
   Upload,
   Layers,
-  FolderOpen
+  FolderOpen,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
 
@@ -29,6 +32,7 @@ const AppLogoTooth = () => (
 );
 
 export const Header: React.FC = () => {
+  const router = useRouter();
   const { 
     triggerResetView, 
     triggerScreenshot, 
@@ -50,6 +54,10 @@ export const Header: React.FC = () => {
 
   const handleExport = () => {
     triggerScreenshot();
+  };
+
+  const handleLogout = () => {
+    router.push('/login');
   };
 
   return (
@@ -102,7 +110,7 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Right: Actions */}
+      {/* Right: Action Buttons + Logout */}
       <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* Upload Custom STL */}
         <button
@@ -165,6 +173,20 @@ export const Header: React.FC = () => {
         >
           <Download className="w-3.5 h-3.5" />
           <span className="hidden xs:inline">Export View</span>
+        </button>
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-slate-200 mx-0.5 sm:mx-1 hidden xs:block" />
+
+        {/* Logout Button */}
+        <button
+          id="btn-header-logout"
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-red-600 bg-white hover:bg-red-50/80 border border-slate-200 hover:border-red-200/80 rounded-lg transition-all shadow-xs cursor-pointer"
+          title="Log out and return to sign in"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
     </header>
