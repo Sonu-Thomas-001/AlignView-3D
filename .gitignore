@@ -33,3 +33,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 3D Dental STL Scans
+/STL/
+/public/STL/
+*.stl
+
