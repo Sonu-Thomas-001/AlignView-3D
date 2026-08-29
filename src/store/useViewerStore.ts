@@ -2,43 +2,45 @@ import { create } from 'zustand';
 import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
 
-const INITIAL_UPPER_FILES: STLFileInfo[] = Array.from({ length: 16 }, (_, i) => {
+const INITIAL_UPPER_FILES: STLFileInfo[] = Array.from({ length: 25 }, (_, i) => {
   const num = (i + 1).toString().padStart(2, '0');
-  const sizes = [24.6, 22.8, 25.1, 23.9, 24.3, 21.7, 26.0, 23.4, 25.8, 22.1, 24.9, 23.5, 25.2, 24.0, 22.7, 25.4];
+  const name = `Krishnapriya Upper jaw - ${num} - Model.stl`;
   return {
-    id: `upper_${num}`,
-    name: `Upper_${num}.stl`,
+    id: `stl_Krishnapriya_Upper_jaw___${num}___Model_stl`,
+    name,
     arch: 'upper',
     stage: i + 1,
-    date: '12 Aug 2025',
-    fileSize: `${sizes[i % sizes.length].toFixed(1)} MB`,
-    verticesCount: 328654 + (i * 1240),
-    trianglesCount: 657302 + (i * 2480),
+    date: '29 Aug 2026',
+    fileSize: `${(13.8 + (i % 4) * 0.3).toFixed(1)} MB`,
+    verticesCount: 871800,
+    trianglesCount: 290600,
     dimensions: {
-      width: 66.0,
-      depth: 61.0,
-      height: 42.0,
-    }
+      width: 63.0,
+      depth: 51.9,
+      height: 15.6,
+    },
+    customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
   };
 });
 
-const INITIAL_LOWER_FILES: STLFileInfo[] = Array.from({ length: 17 }, (_, i) => {
+const INITIAL_LOWER_FILES: STLFileInfo[] = Array.from({ length: 7 }, (_, i) => {
   const num = (i + 1).toString().padStart(2, '0');
-  const sizes = [23.1, 24.0, 22.5, 25.6, 23.8, 24.9, 22.1, 26.3, 24.5, 23.2, 25.0, 22.9, 24.7, 23.6, 25.3, 22.4, 24.8];
+  const name = `Krishnapriya Lower jaw - ${num} - Model.stl`;
   return {
-    id: `lower_${num}`,
-    name: `Lower_${num}.stl`,
+    id: `stl_Krishnapriya_Lower_jaw___${num}___Model_stl`,
+    name,
     arch: 'lower',
     stage: i + 1,
-    date: '12 Aug 2025',
-    fileSize: `${sizes[i % sizes.length].toFixed(1)} MB`,
-    verticesCount: 312480 + (i * 1150),
-    trianglesCount: 624960 + (i * 2300),
+    date: '29 Aug 2026',
+    fileSize: '11.6 MB',
+    verticesCount: 733200,
+    trianglesCount: 244400,
     dimensions: {
-      width: 63.5,
-      depth: 58.0,
-      height: 38.5,
-    }
+      width: 58.5,
+      depth: 48.0,
+      height: 14.8,
+    },
+    customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
   };
 });
 
@@ -138,16 +140,16 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   upperFiles: INITIAL_UPPER_FILES,
   lowerFiles: INITIAL_LOWER_FILES,
-  selectedUpperId: 'upper_01',
-  selectedLowerId: 'lower_01',
+  selectedUpperId: INITIAL_UPPER_FILES[0]?.id || '',
+  selectedLowerId: INITIAL_LOWER_FILES[0]?.id || '',
   
   viewMode: 'both',
   renderMode: 'shaded',
   activeTool: 'move',
   
   isPlaying: false,
-  currentStep: 8, // matching design (8 / 32)
-  totalSteps: 32,
+  currentStep: 1,
+  totalSteps: 25,
   playbackSpeed: 1.0,
   isLooping: true,
   

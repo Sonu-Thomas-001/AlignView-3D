@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
+import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
+import { normalizeDentalGeometry } from '@/utils/stlParser';
 import { UPPER_TEETH, LOWER_TEETH, createToothGeometry, getToothTransform, createGingivaGeometry } from './DentalGeometryGenerator';
 
 interface DentalArchModelProps {
@@ -32,10 +34,44 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
+  const [, setReloadCounter] = useState(0);
 
   // Check if active file has custom uploaded geometry
   const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId), [upperFiles, selectedUpperId]);
   const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId), [lowerFiles, selectedLowerId]);
+
+  // Dynamic async loader for real STL files from STL folder
+  useEffect(() => {
+    if (selectedUpperFile?.customUrl && !selectedUpperFile.customBufferGeometry) {
+      const loader = new STLLoader();
+      loader.load(
+        selectedUpperFile.customUrl,
+        (geometry) => {
+          const normalized = normalizeDentalGeometry(geometry, 'upper');
+          selectedUpperFile.customBufferGeometry = normalized;
+          setReloadCounter(c => c + 1);
+        },
+        undefined,
+        (err) => console.error('Failed to load upper STL:', err)
+      );
+    }
+  }, [selectedUpperFile, selectedUpperId]);
+
+  useEffect(() => {
+    if (selectedLowerFile?.customUrl && !selectedLowerFile.customBufferGeometry) {
+      const loader = new STLLoader();
+      loader.load(
+        selectedLowerFile.customUrl,
+        (geometry) => {
+          const normalized = normalizeDentalGeometry(geometry, 'lower');
+          selectedLowerFile.customBufferGeometry = normalized;
+          setReloadCounter(c => c + 1);
+        },
+        undefined,
+        (err) => console.error('Failed to load lower STL:', err)
+      );
+    }
+  }, [selectedLowerFile, selectedLowerId]);
 
   // Determine visibility based on viewMode and whether arch files exist
   const hasUpper = upperFiles.length > 0;
