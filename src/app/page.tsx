@@ -3,8 +3,8 @@
 import React from 'react';
 import { LandingNavbar } from '@/components/landing/LandingNavbar';
 import { HeroSection } from '@/components/landing/HeroSection';
-import { MetricsSection } from '@/components/landing/MetricsSection';
 import { BentoGridSection } from '@/components/landing/BentoGridSection';
+import { MetricsSection } from '@/components/landing/MetricsSection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { CtaSection } from '@/components/landing/CtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
@@ -18,19 +18,19 @@ export default function LandingPage() {
 
       {/* 2. Semantic Main Body */}
       <main className="flex-1">
-        {/* Hero Section with Release Badges & Value Proposition */}
+        {/* 1. Hero Section with Release Badges & Value Proposition */}
         <HeroSection />
 
-        {/* Performance & Speed Metrics Telemetry Card */}
-        <MetricsSection />
-
-        {/* Bento Grid Innovation Feature Suite */}
+        {/* 2. Bento Grid Features Suite (State-of-the-Art Architecture) */}
         <BentoGridSection />
 
-        {/* Frequently Asked Questions Accordion */}
+        {/* 3. Performance & Speed Metrics Telemetry Card */}
+        <MetricsSection />
+
+        {/* 4. Frequently Asked Questions Accordion */}
         <FaqSection />
 
-        {/* High-Impact Call to Action Banner */}
+        {/* 5. High-Impact Call to Action Banner */}
         <CtaSection />
       </main>
 
