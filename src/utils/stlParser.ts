@@ -287,58 +287,66 @@ export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch
 
     // Arch angle theta: 0 is anterior center (incisors), +/- 1.2+ is posterior (molars)
     const theta = Math.atan2(z, x);
-    const absAngle = Math.abs(theta);
 
     // Anatomical crown height profiling:
-    // - Anterior (Incisors & Canines, front): crowns extend high (72% of model height)
-    // - Posterior (Premolars & Molars, back): crowns are shorter (56% of model height)
-    const isAnterior = z > (bbox.min.z + sizeZ * 0.35);
-    const crownHeightFactor = isAnterior ? 0.72 : 0.58;
-
-    // Interdental papillae scalloping: sharp high arches over each tooth, dipping between teeth
-    // 14 teeth around the parabolic arch curve
-    const scallopWave = Math.sin(theta * 14.5) * 0.055 + Math.cos(theta * 29.0) * 0.015;
+    // - Anterior (Incisors & Canines, front): crowns extend high
+    // - Posterior (Premolars & Molars, back): crowns are shorter
+    const isAnterior = z > (bbox.min.z + sizeZ * 0.38);
 
     let gumFactor = 0; // 0.0 = pure tooth enamel (white), 1.0 = pure gingiva (coral-rose)
 
     if (isUpper) {
       // Upper Jaw: Teeth crowns at bottom (-Y, normY < gumline), Gums at top (+Y, normY > gumline)
-      const baseGumline = crownHeightFactor + scallopWave;
-      const transitionWidth = 0.018; // Crisp anatomical cervical margin
+      const crownBaseline = isAnterior ? 0.58 : 0.48;
+      
+      // Use surface normal to follow natural physical 3D curvature:
+      // Teeth face outward/downward (ny < 0.1), while gingiva slopes upward towards base (ny > 0.25)
+      const curvatureOffset = ny * 0.07;
+      const adjustedY = normY - curvatureOffset;
 
-      if (normY >= baseGumline + transitionWidth) {
+      const transitionWidth = 0.022;
+
+      if (normY > 0.88 || ny > 0.82) {
+        // Flat upper model base cut is always 100% gingiva
         gumFactor = 1.0;
-      } else if (normY <= baseGumline - transitionWidth) {
+      } else if (adjustedY >= crownBaseline + transitionWidth) {
+        gumFactor = 1.0;
+      } else if (adjustedY <= crownBaseline - transitionWidth) {
         gumFactor = 0.0;
       } else {
-        // Smoothstep transition
-        const t = (normY - (baseGumline - transitionWidth)) / (2 * transitionWidth);
+        const t = (adjustedY - (crownBaseline - transitionWidth)) / (2 * transitionWidth);
         gumFactor = t * t * (3 - 2 * t);
       }
 
-      // Orthodontic attachments and facial facial ridges protrude forward/downwards
-      // If normal points downward or forward on tooth region, ensure pure enamel
-      if (normY < 0.65 && (ny < -0.15 || nz > 0.6)) {
-        gumFactor *= 0.15;
+      // Preserve orthodontic attachments and incisal edges
+      if (normY < 0.62 && (ny < -0.1 || nz > 0.55)) {
+        gumFactor *= 0.1;
       }
     } else {
       // Lower Jaw: Gums at bottom (-Y, normY < gumline), Teeth crowns at top (+Y, normY > gumline)
-      const baseGumline = (1.0 - crownHeightFactor) - scallopWave;
-      const transitionWidth = 0.018;
+      const crownBaseline = isAnterior ? 0.48 : 0.54;
 
-      if (normY <= baseGumline - transitionWidth) {
+      // Lower teeth face outward/upward (ny > -0.1), while lower gingiva slopes downward towards base (ny < -0.25)
+      const curvatureOffset = ny * 0.07;
+      const adjustedY = normY - curvatureOffset;
+
+      const transitionWidth = 0.022;
+
+      if (normY < 0.12 || ny < -0.82) {
+        // Flat lower model base cut is always 100% gingiva
         gumFactor = 1.0;
-      } else if (normY >= baseGumline + transitionWidth) {
+      } else if (adjustedY <= crownBaseline - transitionWidth) {
+        gumFactor = 1.0;
+      } else if (adjustedY >= crownBaseline + transitionWidth) {
         gumFactor = 0.0;
       } else {
-        // Smoothstep transition
-        const t = ((baseGumline + transitionWidth) - normY) / (2 * transitionWidth);
+        const t = ((crownBaseline + transitionWidth) - adjustedY) / (2 * transitionWidth);
         gumFactor = t * t * (3 - 2 * t);
       }
 
-      // Orthodontic attachments on lower teeth
-      if (normY > 0.35 && (ny > 0.15 || nz > 0.6)) {
-        gumFactor *= 0.15;
+      // Preserve orthodontic attachments on lower teeth
+      if (normY > 0.38 && (ny > 0.1 || nz > 0.55)) {
+        gumFactor *= 0.1;
       }
     }
 
