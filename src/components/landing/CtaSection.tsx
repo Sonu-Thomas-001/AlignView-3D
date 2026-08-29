@@ -2,20 +2,20 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, Github, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowRight, Sparkles, ShieldCheck, Zap } from 'lucide-react';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
 export const CtaSection: React.FC = () => {
   return (
-    <section className="py-8 sm:py-14 bg-white relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <ScrollReveal animation="scale-up" duration={700}>
-          <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-8 sm:p-14 text-center text-white shadow-2xl border border-slate-800 overflow-hidden">
-            
-            {/* Ambient Glow */}
-            <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+    <section className="py-12 sm:py-16 bg-slate-950 text-white relative overflow-hidden">
+      {/* Dynamic Background Flare Glows */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-r from-blue-600/30 via-indigo-600/30 to-purple-600/25 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+        <ScrollReveal animation="scale-up">
+          <div className="relative rounded-3xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-800 p-7 sm:p-12 lg:p-14 shadow-2xl backdrop-blur-xl overflow-hidden">
+            
             <div className="relative z-10 max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold mb-4 sm:mb-6">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -40,13 +40,10 @@ export const CtaSection: React.FC = () => {
                 </Link>
 
                 <a
-                  href="https://github.com/Sonu-Thomas-001/AlignView-3D"
-                  target="_blank"
-                  rel="noreferrer"
+                  href="#features"
                   className="px-6 py-3.5 text-xs sm:text-sm font-semibold text-white bg-white/10 hover:bg-white/15 border border-white/20 rounded-full transition-all flex items-center gap-2"
                 >
-                  <Github className="w-4 h-4" />
-                  <span>View Repository</span>
+                  <span>Explore Feature Suite</span>
                 </a>
               </div>
 

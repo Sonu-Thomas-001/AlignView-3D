@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { 
   ChevronDown, 
   HelpCircle, 
@@ -137,7 +138,7 @@ export const FaqSection: React.FC = () => {
                 ))}
               </div>
 
-              {/* "Need More Help?" Community Card */}
+              {/* "Need More Help?" Support Card */}
               <div className="p-5 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
@@ -145,19 +146,17 @@ export const FaqSection: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-slate-900">Have a custom requirement?</h4>
-                    <p className="text-[11px] text-slate-500">Contact the author or report an issue</p>
+                    <p className="text-[11px] text-slate-500">Contact MidCell Studios engineering</p>
                   </div>
                 </div>
                 
-                <a
-                  href="https://github.com/Sonu-Thomas-001/AlignView-3D/issues"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all"
+                <Link
+                  href="/studio"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm"
                 >
-                  <span>Open GitHub Issues</span>
+                  <span>Launch 3D Studio</span>
                   <ArrowRight className="w-3.5 h-3.5" />
-                </a>
+                </Link>
               </div>
             </ScrollReveal>
           </div>

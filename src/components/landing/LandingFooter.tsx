@@ -3,18 +3,16 @@
 import React from 'react';
 import Link from 'next/link';
 import { 
-  Github, 
   ArrowUp, 
   Sparkles, 
   Layers, 
   Ruler, 
   Eye, 
   Activity, 
-  ExternalLink,
-  ShieldCheck,
-  FileText,
-  Lock,
-  Shield
+  ShieldCheck, 
+  FileText, 
+  Lock, 
+  Shield 
 } from 'lucide-react';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
@@ -52,19 +50,10 @@ export const LandingFooter: React.FC = () => {
             <div className="flex items-center gap-2.5 shrink-0">
               <Link
                 href="/studio"
-                className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/25 transition-all transform hover:-translate-y-0.5"
+                className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/25 transition-all transform hover:-translate-y-0.5"
               >
                 Open 3D Studio →
               </Link>
-              <a
-                href="https://github.com/Sonu-Thomas-001/AlignView-3D"
-                target="_blank"
-                rel="noreferrer"
-                className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700/80"
-                title="Official GitHub Repository"
-              >
-                <Github className="w-4 h-4" />
-              </a>
             </div>
           </div>
         </ScrollReveal>
@@ -91,20 +80,6 @@ export const LandingFooter: React.FC = () => {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] font-semibold text-slate-300">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>All Systems Operational • WebGL 2.0 Ready</span>
-              </div>
-
-              {/* Official Repo Link */}
-              <div className="flex items-center gap-3 pt-1">
-                <a
-                  href="https://github.com/Sonu-Thomas-001/AlignView-3D"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-all text-xs font-semibold"
-                >
-                  <Github className="w-3.5 h-3.5" />
-                  <span>Official Repository</span>
-                  <ExternalLink className="w-3 h-3 text-slate-500" />
-                </a>
               </div>
             </div>
 
