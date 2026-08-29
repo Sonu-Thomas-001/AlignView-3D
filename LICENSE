@@ -1,21 +1,24 @@
-MIT License
+PROPRIETARY SOURCE CODE LICENSE & TERMS OF USE
+Copyright (c) 2025-2026 Sonu Thomas. All Rights Reserved.
 
-Copyright (c) 2025-2026 Sonu Thomas
+CONFIDENTIAL AND PROPRIETARY INFORMATION
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. GRANT OF LICENSE:
+This software ("AlignView 3D"), including but not limited to its source code, 3D dental algorithms, geometry generation logic, shader pipelines, user interfaces, branding, assets, and documentation (collectively, the "Software"), is the exclusive intellectual property of Sonu Thomas ("Owner").
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. STRICT RESTRICTIONS:
+You are strictly PROHIBITED from:
+  a. Copying, duplicating, cloning, or reproducing the source code or any part thereof in any form or medium.
+  b. Distributing, publishing, sublicensing, leasing, renting, or selling the Software or any derivative work.
+  c. Reverse engineering, decompiling, disassembling, or extracting the algorithms or proprietary 3D geometry systems.
+  d. Creating competing products, commercial forks, or unauthorized web deployments using this code or architecture.
+  e. Removing, altering, or obscuring any copyright, patent, trademark, or proprietary notices.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. INTELLECTUAL PROPERTY:
+All rights, title, and interest in and to the Software, including all associated intellectual property rights (patents, copyrights, trade secrets, trademarks), remain solely and exclusively with Sonu Thomas.
+
+4. NO WARRANTY & DISCLAIMER:
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+5. CLINICAL USE DISCLAIMER:
+AlignView 3D is a software visualization and modeling tool. It does not replace professional dental or orthodontic clinical judgment. Clinicians and orthodontists are solely responsible for treatment planning, diagnosis, and patient outcomes.

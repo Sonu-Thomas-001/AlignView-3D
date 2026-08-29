@@ -12,7 +12,10 @@ import {
   Activity, 
   ExternalLink,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  FileText,
+  Lock,
+  Shield
 } from 'lucide-react';
 
 const AppLogoTooth = () => (
@@ -55,7 +58,7 @@ export const LandingFooter: React.FC = () => {
                 Ready to inspect your dental STL models?
               </h3>
               <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-                Launch the studio now — zero installation, zero lag, 100% free and open-source.
+                Launch the studio now — zero installation, zero lag, 100% client-side privacy.
               </p>
             </div>
           </div>
@@ -72,7 +75,7 @@ export const LandingFooter: React.FC = () => {
               target="_blank"
               rel="noreferrer"
               className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700/80"
-              title="Star on GitHub"
+              title="Official GitHub Repository"
             >
               <Github className="w-4 h-4" />
             </a>
@@ -99,7 +102,7 @@ export const LandingFooter: React.FC = () => {
             </Link>
 
             <p className="text-slate-400 max-w-sm leading-relaxed text-xs sm:text-sm">
-              Next-generation open-source WebGL dental STL previewer & 32-stage orthodontic aligner simulator. Built for orthodontists, clinics, dental labs, and CAD developers.
+              Proprietary WebGL dental STL previewer & 32-stage orthodontic aligner simulator. Engineered for orthodontists, clinics, dental labs, and CAD developers.
             </p>
 
             {/* Live Operational Status Badge */}
@@ -108,7 +111,7 @@ export const LandingFooter: React.FC = () => {
               <span>All Systems Operational • WebGL 2.0 Ready</span>
             </div>
 
-            {/* Social & Community Links */}
+            {/* Social & Official Repo Links */}
             <div className="flex items-center gap-3 pt-2">
               <a
                 href="https://github.com/Sonu-Thomas-001/AlignView-3D"
@@ -117,7 +120,7 @@ export const LandingFooter: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-all text-xs font-semibold"
               >
                 <Github className="w-3.5 h-3.5" />
-                <span>GitHub Repo</span>
+                <span>Official Repository</span>
                 <ExternalLink className="w-3 h-3 text-slate-500" />
               </a>
             </div>
@@ -176,29 +179,31 @@ export const LandingFooter: React.FC = () => {
             </ul>
           </div>
 
-          {/* Col 5: Technology & Specs */}
+          {/* Col 5: Legal & Security Policies */}
           <div>
             <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-4">
-              Technology
+              Legal & Trust
             </h4>
             <ul className="space-y-2.5 text-xs sm:text-sm text-slate-400">
-              <li className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>Next.js 16 (Turbopack)</span>
+              <li>
+                <Link href="/terms" className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Terms & License</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>Three.js & R3F</span>
+              <li>
+                <Link href="/privacy" className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Privacy & HIPAA</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>Zustand State Store</span>
+              <li>
+                <Link href="/security" className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Security Sandbox</span>
+                </Link>
               </li>
-              <li className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>Tailwind CSS System</span>
-              </li>
-              <li className="flex items-center gap-1.5">
+              <li className="pt-1 flex items-center gap-1.5 text-slate-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>100% Client-Side Privacy</span>
               </li>
@@ -210,11 +215,13 @@ export const LandingFooter: React.FC = () => {
         {/* Bottom Copyright & Back to Top Bar */}
         <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-center sm:text-left">
-            <span>© {new Date().getFullYear()} AlignView 3D.</span>
+            <span>© {new Date().getFullYear()} AlignView 3D by Sonu Thomas.</span>
             <span className="hidden sm:inline">•</span>
-            <span>Crafted by Sonu Thomas.</span>
+            <span>Proprietary Software. All Rights Reserved.</span>
             <span className="hidden sm:inline">•</span>
-            <span>MIT Open-Source License.</span>
+            <Link href="/terms" className="text-slate-400 hover:text-white transition-colors">Terms of Service</Link>
+            <span className="hidden sm:inline">•</span>
+            <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors">Privacy Policy</Link>
           </div>
 
           <div className="flex items-center gap-4">

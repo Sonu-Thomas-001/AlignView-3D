@@ -100,7 +100,7 @@ export const LandingNavbar: React.FC = () => {
             <Github className="w-3.5 h-3.5" />
             <span>Star</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-white text-slate-500 border border-slate-200 shadow-2xs">
-              MIT
+              v1.0
             </span>
           </a>
 
@@ -159,7 +159,7 @@ export const LandingNavbar: React.FC = () => {
               className="flex items-center justify-center gap-2 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-xl"
             >
               <Github className="w-4 h-4" />
-              <span>Star on GitHub (MIT License)</span>
+              <span>Official GitHub Repository</span>
             </a>
 
             <Link

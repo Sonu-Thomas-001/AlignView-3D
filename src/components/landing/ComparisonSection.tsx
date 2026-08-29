@@ -101,8 +101,8 @@ const MATRIX_DATA: MatrixRow[] = [
   {
     category: 'cost',
     feature: 'Pricing & Licensing',
-    alignView: '$0 / 100% Free & Open Source',
-    alignViewDetail: 'MIT License for clinics, labs & developers',
+    alignView: '$0 / Free Web Access',
+    alignViewDetail: 'Proprietary software for clinics, labs & patients',
     legacyCAD: '$2,000 – $5,000 / Year',
     legacyCADDetail: 'Recurring seat license fees & maintenance contracts',
   },
@@ -158,7 +158,7 @@ export const ComparisonSection: React.FC = () => {
               </h3>
               <div className="flex items-baseline gap-2 mb-6">
                 <span className="text-3xl sm:text-4xl font-extrabold text-slate-900">$0</span>
-                <span className="text-xs font-bold text-slate-500">/ 100% Free & Open-Source Forever</span>
+                <span className="text-xs font-bold text-slate-500">/ Free Web Access • Proprietary</span>
               </div>
 
               {/* Feature Checklist */}

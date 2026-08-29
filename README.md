@@ -7,9 +7,9 @@
 [![Three.js](https://img.shields.io/badge/Three.js-r167-black?style=flat-square&logo=three.js)](https://threejs.org/)
 [![React Three Fiber](https://img.shields.io/badge/R3F-8.16-blueviolet?style=flat-square)](https://docs.pmnd.rs/react-three-fiber/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
 
-**AlignView 3D** is a web application engineered for dental clinicians, orthodontic labs, and patients to inspect 3D dental scan models (`.stl`), simulate clear aligner orthodontic treatment sequences, analyze occlusion, calculate millimeter caliper distances, and cross-section anatomical arches in real time.
+**AlignView 3D** is a proprietary web application engineered for dental clinicians, orthodontic labs, and patients to inspect 3D dental scan models (`.stl`), simulate clear aligner orthodontic treatment sequences, analyze occlusion, calculate millimeter caliper distances, and cross-section anatomical arches in real time. All source code and 3D dental algorithms are strictly proprietary. Unauthorized duplication, cloning, or commercial redistribution is strictly prohibited.
 
 ---
 
