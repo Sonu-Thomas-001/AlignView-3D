@@ -14,35 +14,38 @@ import { LandingFooter } from '@/components/landing/LandingFooter';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white scroll-smooth">
-      {/* 1. Sticky Glassmorphic Navbar */}
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white scroll-smooth flex flex-col">
+      {/* 1. Semantic Sticky Header & Navbar */}
       <LandingNavbar />
 
-      {/* 2. Hero Section with Animated Mock Studio Interface & Badges */}
-      <HeroSection />
+      {/* 2. Semantic Main Body */}
+      <main className="flex-1">
+        {/* Hero Section with Animated Mock Studio Interface & Badges */}
+        <HeroSection />
 
-      {/* 3. Performance & Speed Metrics Ribbon */}
-      <MetricsSection />
+        {/* Performance & Speed Metrics Ribbon */}
+        <MetricsSection />
 
-      {/* 4. Bento Grid Innovation Feature Suite */}
-      <BentoGridSection />
+        {/* Bento Grid Innovation Feature Suite */}
+        <BentoGridSection />
 
-      {/* 5. 4-Step Clinical & Lab Workflow Tabs */}
-      <WorkflowSection />
+        {/* 4-Step Clinical & Lab Workflow Tabs */}
+        <WorkflowSection />
 
-      {/* 6. Interactive Before / After Smile Alignment Slider */}
-      <BeforeAfterSection />
+        {/* Interactive Before / After Smile Alignment Slider */}
+        <BeforeAfterSection />
 
-      {/* 7. Comparison Table: AlignView 3D vs. Legacy CAD */}
-      <ComparisonSection />
+        {/* Comparison Table: AlignView 3D vs. Legacy CAD */}
+        <ComparisonSection />
 
-      {/* 8. Frequently Asked Questions Accordion */}
-      <FaqSection />
+        {/* Frequently Asked Questions Accordion */}
+        <FaqSection />
 
-      {/* 9. High-Impact Call to Action Banner */}
-      <CtaSection />
+        {/* High-Impact Call to Action Banner */}
+        <CtaSection />
+      </main>
 
-      {/* 10. Footer */}
+      {/* 3. Semantic Footer */}
       <LandingFooter />
     </div>
   );
