@@ -50,8 +50,61 @@
 
 ## 🏗️ Architecture & Tech Stack
 
+```mermaid
+graph TD
+    %% Global Application Architecture
+    subgraph UI_Layer ["🖥️ Presentation & UI Layer (Next.js 14 App Router)"]
+        Page["src/app/page.tsx (Main Layout Engine)"]
+        Header["Header (Brand, Reset, Screenshot, Fullscreen, Export)"]
+        LeftSidebar["Upper Arch Sidebar (Search, File List, 3D Thumbs)"]
+        RightSidebar["Lower Arch Sidebar (Search, File List, 3D Thumbs)"]
+        Timeline["TimelinePlayback (32-Stage Scrubber, Speed, Loop)"]
+        UploadModal["UploadModal (Drag-and-Drop STL Parser)"]
+    end
+
+    subgraph State_Layer ["⚡ Reactive State Store (Zustand)"]
+        Store[("useViewerStore")]
+        Store --- S1["Model Files & Active Selection (Upper / Lower)"]
+        Store --- S2["View Modes (Both / Upper / Lower / Split)"]
+        Store --- S3["Render Shaders (Shaded / Wire / Solid / X-Ray)"]
+        Store --- S4["Active Tools (Move / Rotate / Zoom / Pan / Measure / Section)"]
+        Store --- S5["Timeline Playback (Stage 1..32, Speed, Loop)"]
+        Store --- S6["Camera Controls (Snap Targets & Tweens)"]
+        Store --- S7["Telemetry Data (Vertices, Triangles, Dimensions)"]
+    end
+
+    subgraph Viewport_Layer ["🌐 3D Viewport & Overlays (React Three Fiber)"]
+        Canvas["DentalCanvas (R3F Canvas, Studio Lights, Contact Shadows)"]
+        ViewCube["ViewCubeGizmo (U / D / L / R / F Snap Controls)"]
+        ToolPalette["FloatingToolPalette (Tool Switcher)"]
+        StatsCard["ModelStatsCard (Live Geometry Telemetry)"]
+        RenderPill["RenderModePill (Shader Selector)"]
+        ViewPill["ViewModePill (Arch View Selector)"]
+        MeasureOverlay["MeasurementOverlay (Real-time Caliper Distance)"]
+        SectionSlider["SectionSlider (Dynamic X/Y/Z Slice Offset)"]
+    end
+
+    subgraph Core_3D_Engine ["⚙️ 3D Geometry & Simulation Pipeline (Three.js)"]
+        ModelRenderer["DentalArchModel (Dual-Arch Mesh Renderer)"]
+        GeomGen["DentalGeometryGenerator (Tooth Morphology & Aligner Morpher)"]
+        STLLoader["STLLoader (Custom Binary/ASCII Mesh Parser)"]
+        Shaders["Dental Shaders (Pearlescent Enamel PBR & Coral Gingiva)"]
+        ClipEngine["Local Clipping Plane Engine (Cross-Section Inspection)"]
+        CaliperRaycast["Point-to-Point Raycaster (3D Distance Measurement)"]
+    end
+
+    %% Component Data Flows
+    Page --> Header & LeftSidebar & RightSidebar & Timeline & UploadModal & Canvas
+    Canvas --> ViewCube & ToolPalette & StatsCard & RenderPill & ViewPill & MeasureOverlay & SectionSlider & ModelRenderer
+    ModelRenderer --> GeomGen & STLLoader & Shaders & ClipEngine & CaliperRaycast
+
+    %% Reactive State Bindings
+    LeftSidebar & RightSidebar & Timeline & Header & ViewCube & ToolPalette & SectionSlider <--> Store
+    Store <--> ModelRenderer
 ```
-AlignView 3D
+
+```
+AlignView 3D Tech Stack
 ├── Framework: Next.js 14 (App Router)
 ├── Language: TypeScript (Strict mode)
 ├── 3D Engine: Three.js r167 + @react-three/fiber + @react-three/drei
