@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Sparkles, 
@@ -9,7 +9,51 @@ import {
 } from 'lucide-react';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
+const TYPED_PHRASES = [
+  'at the Speed of Web.',
+  'in Real-Time 60 FPS WebGL.',
+  'with 32-Stage Aligner Trajectory.',
+  'with Sub-Millimeter Caliper Precision.',
+  '100% Client-Side in Your Browser.',
+];
+
 export const HeroSection: React.FC = () => {
+  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+  const [currentText, setCurrentText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [typingSpeed, setTypingSpeed] = useState(70);
+
+  useEffect(() => {
+    const fullPhrase = TYPED_PHRASES[currentPhraseIndex];
+
+    const timer = setTimeout(() => {
+      if (!isDeleting) {
+        // Typing forward
+        setCurrentText(fullPhrase.slice(0, currentText.length + 1));
+        setTypingSpeed(60);
+
+        if (currentText.length + 1 === fullPhrase.length) {
+          // Finished typing phrase, pause before backspacing
+          setTypingSpeed(2200);
+          setIsDeleting(true);
+        }
+      } else {
+        // Backspacing
+        setCurrentText(fullPhrase.slice(0, currentText.length - 1));
+        setTypingSpeed(35);
+
+        if (currentText.length === 0) {
+          // Finished backspacing, switch to next phrase
+          setIsDeleting(false);
+          setCurrentPhraseIndex((prev) => (prev + 1) % TYPED_PHRASES.length);
+          setTypingSpeed(400);
+        }
+      }
+    }, typingSpeed);
+
+    return () => clearTimeout(timer);
+  }, [currentText, isDeleting, currentPhraseIndex, typingSpeed]);
+
   return (
     <section className="relative pt-28 pb-10 sm:pt-36 sm:pb-14 overflow-hidden bg-gradient-to-b from-blue-50/80 via-slate-50/60 to-white">
       {/* Background Subtle Mesh Grids & Ambient Glow Flares */}
@@ -31,19 +75,21 @@ export const HeroSection: React.FC = () => {
           </div>
         </ScrollReveal>
 
-        {/* Main Headline */}
+        {/* Main Headline with Live Typewriter Animation */}
         <ScrollReveal animation="fade-up" delay={150}>
-          <h1 className="text-4xl sm:text-6xl lg:text-[76px] font-black font-display text-slate-900 tracking-[-0.035em] leading-[1.08] max-w-5xl mx-auto">
-            Precision 3D Dental Modeling{' '}
-            <span className="bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 bg-[length:200%_auto] bg-clip-text text-transparent animate-shimmer inline-block">
-              at the Speed of Web.
+          <h1 className="text-4xl sm:text-6xl lg:text-[76px] font-black font-display text-slate-900 tracking-[-0.035em] leading-[1.1] max-w-5xl mx-auto min-h-[140px] sm:min-h-[190px] lg:min-h-[220px] flex flex-col items-center justify-center">
+            <span>Precision 3D Dental Modeling</span>
+            <span className="bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 bg-[length:200%_auto] bg-clip-text text-transparent animate-shimmer inline-flex items-center justify-center">
+              <span>{currentText}</span>
+              {/* Blinking Neon Cursor */}
+              <span className="inline-block w-1 sm:w-1.5 h-[0.85em] bg-blue-600 ml-1.5 rounded-full animate-pulse align-middle" />
             </span>
           </h1>
         </ScrollReveal>
 
         {/* Subtitle */}
         <ScrollReveal animation="fade-up" delay={250}>
-          <p className="mt-5 text-base sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
+          <p className="mt-4 text-base sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
             Inspect clinical STL arches, simulate continuous 32-stage orthodontic treatment trajectories, and perform sub-millimeter caliper measurements directly in your browser.
           </p>
         </ScrollReveal>
