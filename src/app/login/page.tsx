@@ -83,14 +83,18 @@ export default function LoginPage() {
           <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-2xl p-7 sm:p-10 space-y-7 relative">
             
             {/* Top Brand Logo & Title */}
-            <div className="text-center space-y-3">
-              <div className="inline-flex p-3 rounded-2xl bg-blue-50 border border-blue-100 shadow-inner mb-1">
-                <LoginToothLogo />
+            <div className="text-center space-y-2">
+              <div className="flex justify-center mb-2">
+                <img 
+                  src="/main-logo.png" 
+                  alt="AlignView 3D" 
+                  className="h-12 sm:h-14 w-auto object-contain" 
+                />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Sign In to AlignView <span className="text-blue-600">3D</span>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                Clinician Portal Sign In
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500">
+              <p className="text-xs text-slate-500 max-w-xs mx-auto">
                 Access your orthodontic 3D workspace, 32-stage aligner timeline, and diagnostic tool suite.
               </p>
             </div>

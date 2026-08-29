@@ -51,18 +51,12 @@ export const LandingNavbar: React.FC = () => {
         }`}
       >
         {/* Left: Brand Identity */}
-        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="p-1.5 rounded-xl bg-blue-50 group-hover:bg-blue-100 group-hover:scale-105 transition-all shadow-inner flex items-center justify-center">
-            <AppLogoTooth />
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-1">
-              AlignView <span className="text-blue-600 font-extrabold">3D</span>
-            </span>
-            <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-              Orthodontic Engine
-            </span>
-          </div>
+        <Link href="/" className="flex items-center gap-2 group shrink-0" title="AlignView 3D Home">
+          <img 
+            src="/main-logo.png" 
+            alt="AlignView 3D Logo" 
+            className="h-8 sm:h-9 w-auto max-w-[180px] sm:max-w-[220px] object-contain group-hover:scale-105 transition-transform" 
+          />
         </Link>
 
         {/* Center: Desktop Navigation Links */}

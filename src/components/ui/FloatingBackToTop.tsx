@@ -35,9 +35,13 @@ export const FloatingBackToTop: React.FC = () => {
         <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-md group-hover:bg-blue-500/40 transition-colors pointer-events-none" />
 
         {/* Tooth Icon + Mini Arrow Up badge */}
-        <div className="relative flex items-center justify-center text-blue-400 group-hover:text-white transition-colors">
-          <FloatingToothIcon />
-          <div className="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+        <div className="relative flex items-center justify-center">
+          <img 
+            src="/favicon.png" 
+            alt="Back to top" 
+            className="w-5 h-5 object-contain" 
+          />
+          <div className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
             <ArrowUp className="w-2.5 h-2.5 stroke-[3]" />
           </div>
         </div>

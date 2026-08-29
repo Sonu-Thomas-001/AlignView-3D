@@ -59,20 +59,14 @@ export const Header: React.FC = () => {
       <div className="flex items-center gap-2 sm:gap-3.5">
         <a 
           href="/" 
-          className="flex items-center gap-2 sm:gap-3 group"
+          className="flex items-center gap-2 group"
           title="Return to Home Landing Page"
         >
-          <div className="p-1 rounded-xl bg-blue-50 group-hover:bg-blue-100 transition-colors flex items-center justify-center shrink-0">
-            <AppLogoTooth />
-          </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight tracking-tight flex items-center gap-2">
-              AlignView 3D
-            </h1>
-            <p className="text-[10px] sm:text-xs font-medium text-slate-400 hidden xs:block">
-              View <span className="text-slate-300">•</span> Compare <span className="text-slate-300">•</span> Analyze
-            </p>
-          </div>
+          <img 
+            src="/main-logo.png" 
+            alt="AlignView 3D Logo" 
+            className="h-8 sm:h-9 w-auto max-w-[170px] sm:max-w-[210px] object-contain group-hover:scale-105 transition-transform" 
+          />
         </a>
 
         {/* Mobile/Tablet Arch Sidebar Trigger Pills (visible below lg screen) */}

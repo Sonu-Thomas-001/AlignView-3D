@@ -84,17 +84,11 @@ export const LandingFooter: React.FC = () => {
             {/* Col 1 & 2: Brand Identity & Mission */}
             <div className="lg:col-span-2 space-y-3.5">
               <Link href="/" className="inline-flex items-center gap-2.5 group">
-                <div className="p-1.5 rounded-xl bg-blue-950/80 border border-blue-500/30 group-hover:border-blue-400 transition-colors shadow-inner flex items-center justify-center">
-                  <AppLogoTooth />
-                </div>
-                <div>
-                  <span className="text-base sm:text-lg font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                    AlignView <span className="text-blue-500">3D</span>
-                  </span>
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                    Dental Visualization Engine
-                  </span>
-                </div>
+                <img 
+                  src="/main-logo.png" 
+                  alt="AlignView 3D Logo" 
+                  className="h-9 w-auto max-w-[200px] object-contain group-hover:scale-105 transition-transform" 
+                />
               </Link>
 
               <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
