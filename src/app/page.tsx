@@ -35,12 +35,14 @@ export default function STLPreviewerPage() {
       <Header />
 
       {/* 2. Main Content 3-Column Layout */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative p-3 gap-3">
         {/* Left Column: Upper Arch File Sequence List */}
-        <ArchSidebar arch="upper" />
+        <div className="rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm flex shrink-0">
+          <ArchSidebar arch="upper" />
+        </div>
 
-        {/* Center Column: 3D Dental Viewport & Overlays */}
-        <div className="flex-1 h-full relative overflow-hidden">
+        {/* Center Column: 3D Dental Viewport & Overlays with rounded corners */}
+        <div className="flex-1 h-full relative rounded-3xl overflow-hidden border border-slate-200/80 shadow-card bg-gradient-to-b from-[#D4DCF0] via-[#E2E8F4] to-[#CDD7EA]">
           {/* Main Three.js Canvas */}
           <DentalCanvas />
 
@@ -65,7 +67,9 @@ export default function STLPreviewerPage() {
         </div>
 
         {/* Right Column: Lower Arch File Sequence List */}
-        <ArchSidebar arch="lower" />
+        <div className="rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm flex shrink-0">
+          <ArchSidebar arch="lower" />
+        </div>
       </div>
 
       {/* 3. Bottom Timeline & Playback Sequence Bar */}
