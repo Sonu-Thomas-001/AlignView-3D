@@ -89,51 +89,6 @@ export const HeroSection: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Feature Value Highlight Cards */}
-        <div className="mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto text-left">
-          
-          <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
-              <Layers className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">32-Stage Aligner</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Continuous rotation, torque, and arch expansion morphing sequence at 60 FPS.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
-              <Ruler className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Sub-mm Caliper</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Point-to-point Euclidean raycasting accurate to within 0.01 millimeters.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">100% Client Privacy</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Zero server uploads. All STL mesh buffers process locally in RAM for HIPAA safety.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
-              <Zap className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Instant WebGL Boot</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Zero software installations. Loads in &lt; 800ms on desktop, tablet, and mobile.
-            </p>
-          </div>
-
-        </div>
-
       </div>
     </section>
   );
