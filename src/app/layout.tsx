@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AppPreloader } from "@/components/ui/AppPreloader";
 
 export const viewport: Viewport = {
   themeColor: "#2563EB",
@@ -128,6 +129,8 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased min-h-screen bg-[#F4F6FA] text-slate-800 selection:bg-blue-600 selection:text-white">
+        {/* Animated App Preloader with Brand Logo */}
+        <AppPreloader />
         {children}
       </body>
     </html>
