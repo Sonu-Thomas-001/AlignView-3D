@@ -245,12 +245,66 @@ export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch
   const bbox = geometry.boundingBox || new THREE.Box3();
   const minY = bbox.min.y;
   const maxY = bbox.max.y;
+  const minX = bbox.min.x;
+  const maxX = bbox.max.x;
+  const minZ = bbox.min.z;
+  const maxZ = bbox.max.z;
+
   const height = Math.max(0.001, maxY - minY);
-  const sizeZ = Math.max(0.001, bbox.max.z - bbox.min.z);
+  const sizeX = Math.max(0.001, maxX - minX);
+  const sizeZ = Math.max(0.001, maxZ - minZ);
 
   const pos = geometry.attributes.position;
   const normals = geometry.attributes.normal;
-  const colors = new Float32Array(pos.count * 3);
+  const count = pos.count;
+  const colors = new Float32Array(count * 3);
+
+  const isUpper = arch === 'upper';
+
+  // 1. Build a high-resolution 2D Spatial Height-Field Grid (64 x 64) of the Occlusal Surface
+  // This finds the true local incisal edge / cusp tip for every (x, z) region along the arch
+  const GRID_RES = 64;
+  const gridTips = new Float32Array(GRID_RES * GRID_RES);
+  gridTips.fill(isUpper ? 1e9 : -1e9);
+
+  for (let i = 0; i < count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+
+    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((x - minX) / sizeX) * GRID_RES)));
+    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((z - minZ) / sizeZ) * GRID_RES)));
+    const gIdx = gz * GRID_RES + gx;
+
+    if (isUpper) {
+      if (y < gridTips[gIdx]) gridTips[gIdx] = y;
+    } else {
+      if (y > gridTips[gIdx]) gridTips[gIdx] = y;
+    }
+  }
+
+  // Smooth height-field grid to eliminate sampling gaps
+  const smoothedTips = new Float32Array(GRID_RES * GRID_RES);
+  for (let gz = 0; gz < GRID_RES; gz++) {
+    for (let gx = 0; gx < GRID_RES; gx++) {
+      let sum = 0;
+      let cnt = 0;
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = gx + dx;
+          const nz = gz + dz;
+          if (nx >= 0 && nx < GRID_RES && nz >= 0 && nz < GRID_RES) {
+            const val = gridTips[nz * GRID_RES + nx];
+            if (isUpper ? val < 1e8 : val > -1e8) {
+              sum += val;
+              cnt++;
+            }
+          }
+        }
+      }
+      smoothedTips[gz * GRID_RES + gx] = cnt > 0 ? sum / cnt : (isUpper ? minY : maxY);
+    }
+  }
 
   // Exact Anatomical Color Palette sampled from Reference Image 2:
   // 1. Teeth Enamel: Pure lustrous pearl white
@@ -271,9 +325,7 @@ export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch
   const gumDeepG = 0.265;
   const gumDeepB = 0.325;
 
-  const isUpper = arch === 'upper';
-
-  for (let i = 0; i < pos.count; i++) {
+  for (let i = 0; i < count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
     const z = pos.getZ(i);
@@ -282,78 +334,74 @@ export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch
     const ny = normals ? normals.getY(i) : 0;
     const nz = normals ? normals.getZ(i) : 1;
 
-    // Normalized vertical height: 0.0 (occlusal bottom for upper) to 1.0 (base top for upper)
+    // Sample local incisal tip from height-field
+    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((x - minX) / sizeX) * GRID_RES)));
+    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((z - minZ) / sizeZ) * GRID_RES)));
+    const localTipY = smoothedTips[gz * GRID_RES + gx];
+
+    // Local physical distance from the true tooth tip
+    const distFromTip = isUpper ? (y - localTipY) : (localTipY - y);
+
+    // Normalized vertical height from model base to occlusal
     const normY = (y - minY) / height;
 
     // Arch angle theta: 0 is anterior center (incisors), +/- 1.2+ is posterior (molars)
     const theta = Math.atan2(z, x);
 
-    // Anatomical crown height profiling:
-    // - Anterior (Incisors & Canines, front): crowns extend high
-    // - Posterior (Premolars & Molars, back): crowns are shorter
-    const isAnterior = z > (bbox.min.z + sizeZ * 0.38);
+    // Anatomical crown height profiling per tooth:
+    // - Anterior (Incisors & Canines): crown length ~9.5 mm (~62% height)
+    // - Posterior (Premolars & Molars): crown length ~7.5 mm (~48% height)
+    const isAnterior = z > (minZ + sizeZ * 0.38);
+    const maxCrownDist = isAnterior ? (height * 0.62) : (height * 0.48);
+
+    // Surface normal adjustment at the gingival margin:
+    // Teeth faces are vertical/occlusal; gingiva curves sharply inward/upward
+    const normalOffset = isUpper ? (ny * (height * 0.08)) : (-ny * (height * 0.08));
+    const effectiveDist = distFromTip + normalOffset;
 
     let gumFactor = 0; // 0.0 = pure tooth enamel (white), 1.0 = pure gingiva (coral-rose)
 
     if (isUpper) {
-      // Upper Jaw: Teeth crowns at bottom (-Y, normY < gumline), Gums at top (+Y, normY > gumline)
-      const crownBaseline = isAnterior ? 0.58 : 0.48;
-      
-      // Use surface normal to follow natural physical 3D curvature:
-      // Teeth face outward/downward (ny < 0.1), while gingiva slopes upward towards base (ny > 0.25)
-      const curvatureOffset = ny * 0.07;
-      const adjustedY = normY - curvatureOffset;
-
-      const transitionWidth = 0.022;
+      const transitionWidth = height * 0.025;
 
       if (normY > 0.88 || ny > 0.82) {
-        // Flat upper model base cut is always 100% gingiva
+        // Flat model base cut is 100% gingiva
         gumFactor = 1.0;
-      } else if (adjustedY >= crownBaseline + transitionWidth) {
+      } else if (effectiveDist >= maxCrownDist + transitionWidth) {
         gumFactor = 1.0;
-      } else if (adjustedY <= crownBaseline - transitionWidth) {
+      } else if (effectiveDist <= maxCrownDist - transitionWidth) {
         gumFactor = 0.0;
       } else {
-        const t = (adjustedY - (crownBaseline - transitionWidth)) / (2 * transitionWidth);
+        const t = (effectiveDist - (maxCrownDist - transitionWidth)) / (2 * transitionWidth);
         gumFactor = t * t * (3 - 2 * t);
       }
 
       // Preserve orthodontic attachments and incisal edges
-      if (normY < 0.62 && (ny < -0.1 || nz > 0.55)) {
-        gumFactor *= 0.1;
+      if (normY < 0.65 && (ny < -0.1 || nz > 0.55)) {
+        gumFactor *= 0.08;
       }
     } else {
-      // Lower Jaw: Gums at bottom (-Y, normY < gumline), Teeth crowns at top (+Y, normY > gumline)
-      const crownBaseline = isAnterior ? 0.48 : 0.54;
-
-      // Lower teeth face outward/upward (ny > -0.1), while lower gingiva slopes downward towards base (ny < -0.25)
-      const curvatureOffset = ny * 0.07;
-      const adjustedY = normY - curvatureOffset;
-
-      const transitionWidth = 0.022;
+      const transitionWidth = height * 0.025;
 
       if (normY < 0.12 || ny < -0.82) {
-        // Flat lower model base cut is always 100% gingiva
+        // Flat model base cut is 100% gingiva
         gumFactor = 1.0;
-      } else if (adjustedY <= crownBaseline - transitionWidth) {
+      } else if (effectiveDist >= maxCrownDist + transitionWidth) {
         gumFactor = 1.0;
-      } else if (adjustedY >= crownBaseline + transitionWidth) {
+      } else if (effectiveDist <= maxCrownDist - transitionWidth) {
         gumFactor = 0.0;
       } else {
-        const t = ((crownBaseline + transitionWidth) - adjustedY) / (2 * transitionWidth);
+        const t = (effectiveDist - (maxCrownDist - transitionWidth)) / (2 * transitionWidth);
         gumFactor = t * t * (3 - 2 * t);
       }
 
       // Preserve orthodontic attachments on lower teeth
-      if (normY > 0.38 && (ny > 0.1 || nz > 0.55)) {
-        gumFactor *= 0.1;
+      if (normY > 0.35 && (ny > 0.1 || nz > 0.55)) {
+        gumFactor *= 0.08;
       }
     }
 
     // Gingival multi-tone depth gradient (matches Image 2 shading):
-    // Near tooth neck: lighter healthy coral-rose (gumMargin)
-    // Mid gum tissue: rich anatomical rose body (gumBody)
-    // Far base cut: deep vascular coral (gumDeep)
     const baseDist = isUpper ? Math.max(0, normY - 0.70) / 0.30 : Math.max(0, 0.30 - normY) / 0.30;
     const neckDist = isUpper ? Math.max(0, 0.80 - normY) / 0.25 : Math.max(0, normY - 0.20) / 0.25;
 
