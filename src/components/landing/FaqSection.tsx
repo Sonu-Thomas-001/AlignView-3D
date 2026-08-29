@@ -107,10 +107,10 @@ export const FaqSection: React.FC = () => {
                   <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
                   <span>Knowledge Base & Support</span>
                 </div>
-                <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                <h2 className="text-2xl sm:text-4xl font-black font-display text-slate-900 tracking-[-0.03em] leading-tight">
                   Frequently Asked Questions
                 </h2>
-                <p className="mt-3 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                <p className="mt-3 text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
                   Everything you need to know about AlignView 3D’s WebGL engine, clear aligner biomechanics, client-side privacy, and precision diagnostic tools.
                 </p>
               </div>

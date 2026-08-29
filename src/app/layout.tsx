@@ -1,6 +1,28 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppPreloader } from "@/components/ui/AppPreloader";
+
+const sansFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
+
+const displayFont = Outfit({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["500", "600", "700", "800", "900"],
+});
+
+const monoFont = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const viewport: Viewport = {
   themeColor: "#2563EB",
@@ -128,7 +150,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSchema) }}
         />
       </head>
-      <body className="antialiased min-h-screen bg-[#F4F6FA] text-slate-800 selection:bg-blue-600 selection:text-white">
+      <body className={`${sansFont.variable} ${displayFont.variable} ${monoFont.variable} font-sans antialiased min-h-screen bg-[#F4F6FA] text-slate-800 selection:bg-blue-600 selection:text-white`}>
         {/* Animated App Preloader with Brand Logo */}
         <AppPreloader />
         {children}

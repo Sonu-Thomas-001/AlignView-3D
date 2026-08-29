@@ -22,7 +22,7 @@ export const CtaSection: React.FC = () => {
                 <span>Instant Web Access • No Registration Required</span>
               </div>
 
-              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight">
+              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black font-display tracking-[-0.03em] leading-tight">
                 Ready to Experience Precision Dental 3D in Your Browser?
               </h2>
 

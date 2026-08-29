@@ -63,11 +63,11 @@ export const MetricsSection: React.FC = () => {
                   <Activity className="w-3.5 h-3.5" />
                   <span>Engine Performance Telemetry</span>
                 </div>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black font-display text-white tracking-[-0.03em]">
                   Engineered for Speed, Precision & Privacy
                 </h2>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed font-normal">
                 Real-time hardware acceleration delivering desktop CAD performance directly inside any modern web browser.
               </p>
             </div>
@@ -94,7 +94,7 @@ export const MetricsSection: React.FC = () => {
                       </div>
 
                       {/* Big Glowing Metric Number */}
-                      <div className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-1 group-hover:text-blue-200 transition-colors">
+                      <div className="text-3xl sm:text-4xl font-black font-display text-white tracking-tight tabular-nums mb-1 group-hover:text-blue-200 transition-colors">
                         {item.value}
                       </div>
 

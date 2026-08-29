@@ -33,7 +33,7 @@ export const HeroSection: React.FC = () => {
 
         {/* Main Headline */}
         <ScrollReveal animation="fade-up" delay={150}>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.12] max-w-5xl mx-auto">
+          <h1 className="text-4xl sm:text-6xl lg:text-[76px] font-black font-display text-slate-900 tracking-[-0.035em] leading-[1.08] max-w-5xl mx-auto">
             Precision 3D Dental Modeling{' '}
             <span className="bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 bg-[length:200%_auto] bg-clip-text text-transparent animate-shimmer inline-block">
               at the Speed of Web.

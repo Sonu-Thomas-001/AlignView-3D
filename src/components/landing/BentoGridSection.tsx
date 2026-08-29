@@ -30,10 +30,10 @@ export const BentoGridSection: React.FC = () => {
               <Sparkles className="w-3.5 h-3.5 text-blue-600" />
               <span>State-of-the-Art Architecture</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black font-display text-slate-900 tracking-[-0.03em] leading-tight">
               Engineered for Precision Dental Diagnosis
             </h2>
-            <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed">
+            <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
               Everything clinicians, orthodontists, and dental labs need to inspect, simulate, and verify clear aligner biomechanics with zero setup.
             </p>
           </div>
@@ -58,7 +58,7 @@ export const BentoGridSection: React.FC = () => {
                     </span>
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 mb-2.5 tracking-tight">
+                  <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold font-display text-slate-900 mb-2.5 tracking-tight">
                     Continuous 32-Stage Aligner Simulation
                   </h3>
                   <p className="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-2xl">
