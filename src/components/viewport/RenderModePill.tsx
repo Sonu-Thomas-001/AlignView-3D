@@ -3,7 +3,7 @@
 import React from 'react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { RenderMode } from '@/types/dental';
-import { Box, Sparkles, Eye } from 'lucide-react';
+import { Box, Eye } from 'lucide-react';
 
 const ShadedIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -37,8 +37,8 @@ export const RenderModePill: React.FC = () => {
   const { renderMode, setRenderMode } = useViewerStore();
 
   return (
-    <div className="absolute bottom-4 right-4 z-20 select-none">
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-floating border border-slate-200/80 p-1 flex items-center gap-1">
+    <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-20 select-none">
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-floating border border-slate-200/80 p-0.5 sm:p-1 flex items-center gap-0.5 sm:gap-1">
         {RENDER_OPTIONS.map((opt) => {
           const isActive = renderMode === opt.id;
           return (
@@ -46,14 +46,15 @@ export const RenderModePill: React.FC = () => {
               key={opt.id}
               id={`render-mode-btn-${opt.id}`}
               onClick={() => setRenderMode(opt.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
+              title={opt.label}
             >
               {opt.icon}
-              <span>{opt.label}</span>
+              <span className="hidden md:inline">{opt.label}</span>
             </button>
           );
         })}

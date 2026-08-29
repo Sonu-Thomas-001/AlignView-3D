@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, MoreVertical, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Search, MoreVertical, Plus, Trash2, CheckCircle2, X } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { STLFileInfo } from '@/types/dental';
 
@@ -57,9 +57,15 @@ const ArchToothIcon = ({ color }: { color: string }) => (
 
 interface ArchSidebarProps {
   arch: 'upper' | 'lower';
+  isMobileDrawer?: boolean;
+  onCloseMobileDrawer?: () => void;
 }
 
-export const ArchSidebar: React.FC<ArchSidebarProps> = ({ arch }) => {
+export const ArchSidebar: React.FC<ArchSidebarProps> = ({ 
+  arch, 
+  isMobileDrawer = false, 
+  onCloseMobileDrawer 
+}) => {
   const isUpper = arch === 'upper';
   const {
     upperFiles,
@@ -98,12 +104,15 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({ arch }) => {
     if (file.stage) {
       setCurrentStep(file.stage);
     }
+    if (isMobileDrawer && onCloseMobileDrawer) {
+      onCloseMobileDrawer();
+    }
   };
 
-  const themeColor = isUpper ? '#2563EB' : '#10B981'; // Blue for upper, Green for lower
+  const themeColor = isUpper ? '#2563EB' : '#10B981';
 
   return (
-    <aside className="w-72 h-full bg-white border-r border-slate-200/80 last:border-r-0 last:border-l flex flex-col select-none shrink-0">
+    <aside className="w-full sm:w-72 h-full bg-white flex flex-col select-none shrink-0">
       {/* Header */}
       <div className="p-4 pb-3 flex items-center justify-between border-b border-slate-100">
         <div className="flex items-center gap-2">
@@ -123,6 +132,15 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({ arch }) => {
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
+          {isMobileDrawer && (
+            <button
+              onClick={onCloseMobileDrawer}
+              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors ml-1"
+              title="Close drawer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

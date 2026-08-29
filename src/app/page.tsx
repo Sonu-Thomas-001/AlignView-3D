@@ -13,6 +13,7 @@ import { SectionSlider } from '@/components/viewport/SectionSlider';
 import { MeasurementOverlay } from '@/components/viewport/MeasurementOverlay';
 import { TimelinePlayback } from '@/components/timeline/TimelinePlayback';
 import { UploadModal } from '@/components/modals/UploadModal';
+import { useViewerStore } from '@/store/useViewerStore';
 
 // Dynamically load 3D Canvas on client only to avoid SSR issues
 const DentalCanvas = dynamic(
@@ -29,22 +30,24 @@ const DentalCanvas = dynamic(
 );
 
 export default function STLPreviewerPage() {
+  const { activeMobileDrawer, setActiveMobileDrawer } = useViewerStore();
+
   return (
     <main className="flex flex-col h-screen w-screen overflow-hidden bg-[#F4F6FA] select-none font-sans">
       {/* 1. Top Navigation & Action Header */}
       <Header />
 
-      {/* 2. Main Content 3-Column Layout */}
-      <div className="flex-1 flex overflow-hidden relative p-3 gap-3">
-        {/* Left Column: Upper Arch File Sequence List */}
-        <div className="rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm flex shrink-0 h-full bg-white">
+      {/* 2. Main Content Layout (Responsive 3-Column on lg+, Full-Width 3D Canvas on mobile/tablet) */}
+      <div className="flex-1 flex overflow-hidden relative p-2 sm:p-3 gap-2 sm:gap-3">
+        {/* Left Column: Upper Arch File Sequence List (Desktop) */}
+        <div className="hidden lg:flex rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm shrink-0 h-full bg-white">
           <ArchSidebar arch="upper" />
         </div>
 
         {/* Center Column: 3D Dental Viewport (Top) + Timeline Playback (Bottom) */}
-        <div className="flex-1 flex flex-col gap-3 h-full overflow-hidden">
+        <div className="flex-1 flex flex-col gap-2 sm:gap-3 h-full overflow-hidden min-w-0">
           {/* 3D Dental Viewport Card */}
-          <div className="flex-1 relative rounded-3xl overflow-hidden border border-slate-200/80 shadow-card bg-gradient-to-b from-[#D4DCF0] via-[#E2E8F4] to-[#CDD7EA]">
+          <div className="flex-1 relative rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/80 shadow-card bg-gradient-to-b from-[#D4DCF0] via-[#E2E8F4] to-[#CDD7EA]">
             {/* Main Three.js Canvas */}
             <DentalCanvas />
 
@@ -69,16 +72,40 @@ export default function STLPreviewerPage() {
           </div>
 
           {/* Bottom Timeline & Playback Card in Center Column */}
-          <div className="rounded-2xl overflow-hidden border border-slate-200/80 bg-white shadow-sm shrink-0">
+          <div className="rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200/80 bg-white shadow-sm shrink-0">
             <TimelinePlayback />
           </div>
         </div>
 
-        {/* Right Column: Lower Arch File Sequence List */}
-        <div className="rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm flex shrink-0 h-full bg-white">
+        {/* Right Column: Lower Arch File Sequence List (Desktop) */}
+        <div className="hidden lg:flex rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm shrink-0 h-full bg-white">
           <ArchSidebar arch="lower" />
         </div>
       </div>
+
+      {/* Responsive Slide-over Drawer for Mobile / Tablet (< lg) */}
+      {activeMobileDrawer && (
+        <div className="fixed inset-0 z-40 lg:hidden flex">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setActiveMobileDrawer(null)}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" 
+          />
+
+          {/* Drawer Panel */}
+          <div className={`relative w-4/5 max-w-sm h-full bg-white shadow-2xl z-50 animate-in duration-200 ${
+            activeMobileDrawer === 'upper' 
+              ? 'slide-in-from-left' 
+              : 'slide-in-from-right ml-auto'
+          }`}>
+            <ArchSidebar 
+              arch={activeMobileDrawer} 
+              isMobileDrawer 
+              onCloseMobileDrawer={() => setActiveMobileDrawer(null)} 
+            />
+          </div>
+        </div>
+      )}
 
       {/* Custom STL Upload Modal */}
       <UploadModal />

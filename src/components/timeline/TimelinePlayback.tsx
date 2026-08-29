@@ -41,21 +41,21 @@ export const TimelinePlayback: React.FC = () => {
   }, [isPlaying, playbackSpeed, nextStep]);
 
   return (
-    <div className="h-20 bg-white px-6 py-2.5 flex items-center justify-between select-none z-20 shrink-0 gap-6">
+    <div className="h-auto sm:h-20 bg-white px-3 sm:px-6 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between select-none z-20 shrink-0 gap-3 sm:gap-6 overflow-x-auto">
       {/* 1. Playback Section */}
-      <div className="flex flex-col gap-1 shrink-0 min-w-[130px]">
-        <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+      <div className="flex flex-col gap-0.5 sm:gap-1 shrink-0 min-w-[110px] sm:min-w-[130px]">
+        <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
           Playback
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Step Back */}
           <button
             id="btn-playback-prev"
             onClick={prevStep}
             title="Previous Treatment Stage"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors"
           >
-            <SkipBack className="w-4 h-4 fill-slate-800 stroke-none" />
+            <SkipBack className="w-3.5 sm:w-4 h-3.5 sm:h-4 fill-slate-800 stroke-none" />
           </button>
 
           {/* Play / Pause Main Button */}
@@ -63,12 +63,12 @@ export const TimelinePlayback: React.FC = () => {
             id="btn-playback-toggle"
             onClick={togglePlay}
             title={isPlaying ? "Pause Animation" : "Play Sequence"}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-md shadow-blue-500/25 transition-all transform active:scale-95"
+            className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-md shadow-blue-500/25 transition-all transform active:scale-95 shrink-0"
           >
             {isPlaying ? (
-              <Pause className="w-4 h-4 fill-white stroke-none" />
+              <Pause className="w-3.5 sm:w-4 h-3.5 sm:h-4 fill-white stroke-none" />
             ) : (
-              <Play className="w-4 h-4 fill-white stroke-none ml-0.5" />
+              <Play className="w-3.5 sm:w-4 h-3.5 sm:h-4 fill-white stroke-none ml-0.5" />
             )}
           </button>
 
@@ -77,29 +77,29 @@ export const TimelinePlayback: React.FC = () => {
             id="btn-playback-next"
             onClick={nextStep}
             title="Next Treatment Stage"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors"
           >
-            <SkipForward className="w-4 h-4 fill-slate-800 stroke-none" />
+            <SkipForward className="w-3.5 sm:w-4 h-3.5 sm:h-4 fill-slate-800 stroke-none" />
           </button>
         </div>
       </div>
 
       {/* Vertical Divider */}
-      <div className="h-10 w-[1px] bg-slate-200/70 shrink-0" />
+      <div className="hidden sm:block h-10 w-[1px] bg-slate-200/70 shrink-0" />
 
       {/* 2. File Sequence Slider Section */}
-      <div className="flex-1 flex flex-col gap-2 min-w-[200px]">
+      <div className="flex-1 order-3 sm:order-none flex flex-col gap-1 sm:gap-2 min-w-[180px] w-full sm:w-auto">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+          <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
             File Sequence
           </span>
-          <span className="text-xs font-semibold text-slate-600 tabular-nums">
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-600 tabular-nums">
             {currentStep} <span className="text-slate-400 font-normal">/ {totalSteps}</span>
           </span>
         </div>
 
         {/* Custom Scrubber Track with Stage Dots */}
-        <div className="relative flex items-center py-2">
+        <div className="relative flex items-center py-1 sm:py-2">
           {/* Background track line */}
           <div className="absolute inset-x-0 h-1.5 bg-slate-100 rounded-full overflow-hidden">
             {/* Active progress fill */}
@@ -116,8 +116,8 @@ export const TimelinePlayback: React.FC = () => {
               return (
                 <div
                   key={i}
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                    isPastOrCurrent ? 'bg-blue-600 ring-2 ring-white' : 'bg-slate-200'
+                  className={`w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full transition-colors ${
+                    isPastOrCurrent ? 'bg-blue-600 ring-1 sm:ring-2 ring-white' : 'bg-slate-200'
                   }`}
                 />
               );
@@ -132,34 +132,34 @@ export const TimelinePlayback: React.FC = () => {
             max={totalSteps}
             value={currentStep}
             onChange={(e) => setCurrentStep(parseInt(e.target.value))}
-            className="w-full relative z-10 opacity-0 cursor-pointer h-6"
+            className="w-full relative z-10 opacity-0 cursor-pointer h-5 sm:h-6"
           />
 
           {/* Animated Blue Thumb Handle */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-md pointer-events-none transition-all duration-75"
+            className="absolute top-1/2 -translate-y-1/2 w-3.5 sm:w-4 h-3.5 sm:h-4 bg-blue-600 rounded-full border-2 border-white shadow-md pointer-events-none transition-all duration-75"
             style={{
-              left: `calc(${((currentStep - 1) / (totalSteps - 1)) * 100}% - 8px)`,
+              left: `calc(${((currentStep - 1) / (totalSteps - 1)) * 100}% - 7px)`,
             }}
           />
         </div>
       </div>
 
       {/* Vertical Divider */}
-      <div className="h-10 w-[1px] bg-slate-200/70 shrink-0" />
+      <div className="hidden sm:block h-10 w-[1px] bg-slate-200/70 shrink-0" />
 
       {/* 3. Speed Control Section */}
-      <div className="flex flex-col gap-1 shrink-0 min-w-[120px]">
+      <div className="flex flex-col gap-0.5 sm:gap-1 shrink-0 min-w-[95px] sm:min-w-[120px]">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+          <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
             Speed
           </span>
-          <span className="text-[11px] font-semibold text-slate-600 tabular-nums">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 tabular-nums">
             {playbackSpeed.toFixed(1)}x
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <Gauge className="w-4 h-4 text-slate-600 shrink-0" />
+        <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+          <Gauge className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-slate-600 shrink-0" />
           <div className="relative flex-1 flex items-center">
             {/* Speed track line */}
             <div className="absolute inset-x-0 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -176,13 +176,13 @@ export const TimelinePlayback: React.FC = () => {
               step="0.25"
               value={playbackSpeed}
               onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-              className="w-full relative z-10 opacity-0 cursor-pointer h-5"
+              className="w-16 sm:w-20 relative z-10 opacity-0 cursor-pointer h-4 sm:h-5"
             />
             {/* Speed Thumb */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-blue-600 rounded-full border-2 border-white shadow pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 w-3 sm:w-3.5 h-3 sm:h-3.5 bg-blue-600 rounded-full border-2 border-white shadow pointer-events-none"
               style={{
-                left: `calc(${((playbackSpeed - 0.5) / (2.5 - 0.5)) * 100}% - 7px)`,
+                left: `calc(${((playbackSpeed - 0.5) / (2.5 - 0.5)) * 100}% - 6px)`,
               }}
             />
           </div>
@@ -190,26 +190,26 @@ export const TimelinePlayback: React.FC = () => {
       </div>
 
       {/* Vertical Divider */}
-      <div className="h-10 w-[1px] bg-slate-200/70 shrink-0" />
+      <div className="hidden sm:block h-10 w-[1px] bg-slate-200/70 shrink-0" />
 
       {/* 4. Loop Switch Section */}
-      <div className="flex flex-col gap-1 shrink-0 min-w-[70px]">
-        <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+      <div className="flex flex-col gap-0.5 sm:gap-1 shrink-0 min-w-[60px] sm:min-w-[70px]">
+        <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
           Loop
         </span>
-        <div className="flex items-center gap-2.5 mt-1">
-          <Repeat className={`w-4 h-4 transition-colors ${isLooping ? 'text-blue-600' : 'text-slate-500'}`} />
+        <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+          <Repeat className={`w-3.5 sm:w-4 h-3.5 sm:h-4 transition-colors ${isLooping ? 'text-blue-600' : 'text-slate-500'}`} />
           {/* iOS style Toggle Switch */}
           <button
             id="btn-toggle-loop"
             onClick={toggleLoop}
-            className={`w-10 h-5 rounded-full p-0.5 transition-colors ${
+            className={`w-9 sm:w-10 h-4.5 sm:h-5 rounded-full p-0.5 transition-colors ${
               isLooping ? 'bg-blue-600' : 'bg-slate-200'
             }`}
           >
             <div
-              className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                isLooping ? 'translate-x-5' : 'translate-x-0'
+              className={`w-3.5 sm:w-4 h-3.5 sm:h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                isLooping ? 'translate-x-4 sm:translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>

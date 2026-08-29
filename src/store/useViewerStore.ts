@@ -77,6 +77,11 @@ interface ViewerState {
   // Upload modal
   isUploadModalOpen: boolean;
   uploadArchTarget: 'upper' | 'lower';
+
+  // Responsive Mobile Drawers
+  activeMobileDrawer: 'upper' | 'lower' | null;
+  setActiveMobileDrawer: (drawer: 'upper' | 'lower' | null) => void;
+  toggleMobileDrawer: (drawer: 'upper' | 'lower') => void;
   
   // Model Telemetry Stats
   modelStats: {
@@ -150,6 +155,12 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   
   isUploadModalOpen: false,
   uploadArchTarget: 'upper',
+  activeMobileDrawer: null,
+
+  setActiveMobileDrawer: (drawer) => set({ activeMobileDrawer: drawer }),
+  toggleMobileDrawer: (drawer) => set((state) => ({
+    activeMobileDrawer: state.activeMobileDrawer === drawer ? null : drawer,
+  })),
   
   modelStats: {
     vertices: 328654,
