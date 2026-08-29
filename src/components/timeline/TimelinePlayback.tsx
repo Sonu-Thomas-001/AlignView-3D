@@ -1,0 +1,193 @@
+'use client';
+
+import React, { useEffect } from 'react';
+import { 
+  Play, 
+  Pause, 
+  SkipBack, 
+  SkipForward, 
+  Gauge, 
+  Repeat 
+} from 'lucide-react';
+import { useViewerStore } from '@/store/useViewerStore';
+
+export const TimelinePlayback: React.FC = () => {
+  const {
+    isPlaying,
+    togglePlay,
+    currentStep,
+    totalSteps,
+    setCurrentStep,
+    nextStep,
+    prevStep,
+    playbackSpeed,
+    setPlaybackSpeed,
+    isLooping,
+    toggleLoop,
+  } = useViewerStore();
+
+  // Automated playback animation interval timer
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const baseIntervalMs = 600;
+    const intervalMs = Math.max(100, baseIntervalMs / playbackSpeed);
+
+    const timer = setInterval(() => {
+      nextStep();
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, playbackSpeed, nextStep]);
+
+  return (
+    <footer className="h-20 bg-white border-t border-slate-200/90 px-8 flex items-center justify-between select-none z-30 shrink-0 gap-8 shadow-sm">
+      {/* 1. Playback Section */}
+      <div className="flex flex-col gap-1.5 shrink-0">
+        <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+          Playback
+        </span>
+        <div className="flex items-center gap-2">
+          {/* Step Back */}
+          <button
+            id="btn-playback-prev"
+            onClick={prevStep}
+            title="Previous Treatment Stage"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+          >
+            <SkipBack className="w-4 h-4 fill-slate-700 stroke-none" />
+          </button>
+
+          {/* Play / Pause Main Button */}
+          <button
+            id="btn-playback-toggle"
+            onClick={togglePlay}
+            title={isPlaying ? "Pause Animation" : "Play Sequence"}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-md shadow-blue-500/25 transition-all transform active:scale-95"
+          >
+            {isPlaying ? (
+              <Pause className="w-4 h-4 fill-white stroke-none" />
+            ) : (
+              <Play className="w-4 h-4 fill-white stroke-none ml-0.5" />
+            )}
+          </button>
+
+          {/* Step Forward */}
+          <button
+            id="btn-playback-next"
+            onClick={nextStep}
+            title="Next Treatment Stage"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+          >
+            <SkipForward className="w-4 h-4 fill-slate-700 stroke-none" />
+          </button>
+        </div>
+      </div>
+
+      {/* 2. File Sequence Slider Section */}
+      <div className="flex-1 max-w-2xl flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+            File Sequence
+          </span>
+          <span className="text-xs font-semibold text-slate-700 tabular-nums">
+            {currentStep} <span className="text-slate-400 font-normal">/ {totalSteps}</span>
+          </span>
+        </div>
+
+        {/* Custom Scrubber Track with Stage Dots */}
+        <div className="relative flex items-center py-2">
+          {/* Background track line */}
+          <div className="absolute inset-x-0 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            {/* Active progress fill */}
+            <div
+              className="h-full bg-blue-600 rounded-full transition-all duration-75"
+              style={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
+            />
+          </div>
+
+          {/* Discrete Stage Tick Dots */}
+          <div className="absolute inset-x-0 flex justify-between pointer-events-none px-1">
+            {Array.from({ length: 32 }).map((_, i) => {
+              const isPastOrCurrent = i + 1 <= currentStep;
+              return (
+                <div
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    isPastOrCurrent ? 'bg-blue-600 ring-2 ring-white' : 'bg-slate-200'
+                  }`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Range Input for dragging */}
+          <input
+            id="slider-file-sequence"
+            type="range"
+            min="1"
+            max={totalSteps}
+            value={currentStep}
+            onChange={(e) => setCurrentStep(parseInt(e.target.value))}
+            className="w-full relative z-10 opacity-0 cursor-pointer h-6"
+          />
+
+          {/* Animated Thumb */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-md pointer-events-none transition-all duration-75"
+            style={{
+              left: `calc(${((currentStep - 1) / (totalSteps - 1)) * 100}% - 8px)`,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 3. Speed Control Section */}
+      <div className="flex flex-col gap-1.5 shrink-0">
+        <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+          Speed
+        </span>
+        <div className="flex items-center gap-2.5">
+          <Gauge className="w-4 h-4 text-slate-500" />
+          <input
+            id="slider-speed"
+            type="range"
+            min="0.5"
+            max="2.5"
+            step="0.25"
+            value={playbackSpeed}
+            onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+            className="w-20"
+          />
+          <span className="text-xs font-mono font-medium text-slate-700 w-8 tabular-nums text-right">
+            {playbackSpeed.toFixed(1)}x
+          </span>
+        </div>
+      </div>
+
+      {/* 4. Loop Switch Section */}
+      <div className="flex flex-col gap-1.5 shrink-0">
+        <span className="text-[11px] font-bold text-slate-800 tracking-tight">
+          Loop
+        </span>
+        <div className="flex items-center gap-3">
+          <Repeat className={`w-4 h-4 transition-colors ${isLooping ? 'text-blue-600' : 'text-slate-400'}`} />
+          {/* iOS style Toggle Switch */}
+          <button
+            id="btn-toggle-loop"
+            onClick={toggleLoop}
+            className={`w-11 h-6 rounded-full p-1 transition-colors ${
+              isLooping ? 'bg-blue-600' : 'bg-slate-200'
+            }`}
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                isLooping ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+    </footer>
+  );
+};
