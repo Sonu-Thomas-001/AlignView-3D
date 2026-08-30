@@ -93,14 +93,7 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* AI Segmentation Pipeline Status Badge */}
-        <div 
-          className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/70 border border-indigo-200/70 rounded-xl text-[11px] font-semibold text-indigo-700 shadow-2xs"
-          title="3D Deep Graph Convolutional Network (MeshSegNet)"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>MeshSegNet 3D AI</span>
-        </div>
+
 
         {/* Mobile/Tablet Arch Sidebar Trigger Pills (visible below lg screen) */}
         <div className="flex lg:hidden items-center gap-1.5 ml-1 sm:ml-2">

@@ -5,8 +5,6 @@ import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { normalizeDentalGeometry } from '@/utils/stlParser';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
-import { segmentDentalMeshAI, applyAISegmentationLabels, fetchMeshSegNetSegmentation } from '@/utils/aiDentalSegmenter';
-import { getFDIToothByID } from '@/utils/fdiToothMap';
 import { UPPER_TEETH, LOWER_TEETH, createToothGeometry, getToothTransform, createGingivaGeometry } from './DentalGeometryGenerator';
 
 interface DentalArchModelProps {
@@ -37,84 +35,17 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
-  const [upperSegmentation, setUpperSegmentation] = useState<number[] | null>(null);
-  const [lowerSegmentation, setLowerSegmentation] = useState<number[] | null>(null);
   const [, setReloadCounter] = useState(0);
 
   // Check if active file has custom uploaded geometry
   const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId), [upperFiles, selectedUpperId]);
   const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId), [lowerFiles, selectedLowerId]);
 
-  // Request MeshSegNet deep segmentation when upper arch changes
-  useEffect(() => {
-    let cancelled = false;
-    if (selectedUpperFile?.name) {
-      fetchMeshSegNetSegmentation(selectedUpperFile.name, 'upper').then(res => {
-        if (!cancelled && res?.fdiLabels) {
-          setUpperSegmentation(res.fdiLabels);
-        }
-      });
-    }
-    return () => { cancelled = true; };
-  }, [selectedUpperFile?.name, selectedUpperId]);
-
-  // Request MeshSegNet deep segmentation when lower arch changes
-  useEffect(() => {
-    let cancelled = false;
-    if (selectedLowerFile?.name) {
-      fetchMeshSegNetSegmentation(selectedLowerFile.name, 'lower').then(res => {
-        if (!cancelled && res?.fdiLabels) {
-          setLowerSegmentation(res.fdiLabels);
-        }
-      });
-    }
-    return () => { cancelled = true; };
-  }, [selectedLowerFile?.name, selectedLowerId]);
-
-  // Dynamically apply AI scalloped segmentation & white attachment coloring
-  const upperRenderGeom = useMemo(() => {
-    if (!selectedUpperFile?.customBufferGeometry) return null;
-    const cloned = selectedUpperFile.customBufferGeometry.clone();
-    if (upperSegmentation) {
-      return applyAISegmentationLabels(cloned, upperSegmentation, 'upper');
-    }
-    return segmentDentalMeshAI(cloned, 'upper');
-  }, [selectedUpperFile?.customBufferGeometry, upperSegmentation]);
-
-  const lowerRenderGeom = useMemo(() => {
-    if (!selectedLowerFile?.customBufferGeometry) return null;
-    const cloned = selectedLowerFile.customBufferGeometry.clone();
-    if (lowerSegmentation) {
-      return applyAISegmentationLabels(cloned, lowerSegmentation, 'lower');
-    }
-    return segmentDentalMeshAI(cloned, 'lower');
-  }, [selectedLowerFile?.customBufferGeometry, lowerSegmentation]);
-
-  // Handle FDI Tooth Hover Tooltip
+  // Handle FDI Tooth Hover Tooltip via 3D spatial dental mapping
   const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
     if (activeTool === 'measure') return;
     e.stopPropagation();
 
-    // 1. Check direct per-triangle MeshSegNet classification
-    const targetGeom = arch === 'upper' ? upperRenderGeom : lowerRenderGeom;
-    const fdiLabels = targetGeom?.userData?.fdiLabels;
-
-    if (fdiLabels && e.faceIndex !== undefined && e.faceIndex !== null) {
-      const fdi = fdiLabels[e.faceIndex];
-      if (fdi > 0) {
-        const tooth = getFDIToothByID(fdi);
-        if (tooth) {
-          setHoveredTooth({
-            ...tooth,
-            screenX: e.clientX,
-            screenY: e.clientY,
-          });
-          return;
-        }
-      }
-    }
-
-    // 2. Spatial geometric fallback
     if (e.point) {
       const tooth = getFDIToothFromPoint(e.point, arch);
       setHoveredTooth({
@@ -141,10 +72,10 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
           setReloadCounter(c => c + 1);
         },
         undefined,
-        (err) => console.error('Failed to load upper STL:', err)
+        (err) => console.warn('Failed loading upper STL:', err)
       );
     }
-  }, [selectedUpperFile, selectedUpperId]);
+  }, [selectedUpperFile?.customUrl, selectedUpperFile]);
 
   useEffect(() => {
     if (selectedLowerFile?.customUrl && !selectedLowerFile.customBufferGeometry) {
@@ -157,104 +88,85 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
           setReloadCounter(c => c + 1);
         },
         undefined,
-        (err) => console.error('Failed to load lower STL:', err)
+        (err) => console.warn('Failed loading lower STL:', err)
       );
     }
-  }, [selectedLowerFile, selectedLowerId]);
+  }, [selectedLowerFile?.customUrl, selectedLowerFile]);
 
-  // Determine visibility based on viewMode and whether arch files exist
-  const hasUpper = upperFiles.length > 0;
-  const hasLower = lowerFiles.length > 0;
-  const showUpper = hasUpper && (isSecondarySplit ? true : (viewMode === 'both' || viewMode === 'upper' || viewMode === 'split'));
-  const showLower = hasLower && (isSecondarySplit ? true : (viewMode === 'both' || viewMode === 'lower' || viewMode === 'split'));
-
-  // Pre-generate tooth geometries for upper and lower
+  // Pre-generate procedural teeth fallback geometries
   const upperGeometries = useMemo(() => {
-    return UPPER_TEETH.map(t => ({
-      tooth: t,
-      geom: createToothGeometry(t),
+    return UPPER_TEETH.map(tooth => ({
+      tooth,
+      geom: createToothGeometry(tooth, 'upper'),
     }));
   }, []);
 
   const lowerGeometries = useMemo(() => {
-    return LOWER_TEETH.map(t => ({
-      tooth: t,
-      geom: createToothGeometry(t),
+    return LOWER_TEETH.map(tooth => ({
+      tooth,
+      geom: createToothGeometry(tooth, 'lower'),
     }));
   }, []);
 
-  // Generate gingiva geometries based on current treatment stage
-  const upperGingivaGeom = useMemo(() => {
-    return createGingivaGeometry('upper', stage, totalStages);
-  }, [stage, totalStages]);
+  const upperGingivaGeom = useMemo(() => createGingivaGeometry('upper'), []);
+  const lowerGingivaGeom = useMemo(() => createGingivaGeometry('lower'), []);
 
-  const lowerGingivaGeom = useMemo(() => {
-    return createGingivaGeometry('lower', stage, totalStages);
-  }, [stage, totalStages]);
+  // Smooth animation interpolation during playback
+  const currentInterpolation = useRef(0);
+  const targetInterpolation = stage / totalStages;
 
-  // Materials based on renderMode
-  const clippingPlanesArray = useMemo(() => {
-    return clippingPlane ? [clippingPlane] : [];
-  }, [clippingPlane]);
+  useFrame((_, delta) => {
+    if (isPlaying) {
+      currentInterpolation.current = THREE.MathUtils.lerp(
+        currentInterpolation.current,
+        targetInterpolation,
+        delta * 6
+      );
+    } else {
+      currentInterpolation.current = targetInterpolation;
+    }
+  });
 
-  const { 
-    toothMaterial, 
-    gingivaMaterial, 
-    upperCustomMaterial, 
-    lowerCustomMaterial 
-  } = useMemo(() => {
-    const isWireframe = renderMode === 'wireframe';
-    const isSolid = renderMode === 'solid';
-    const isXRay = renderMode === 'xray';
+  const showUpper = viewMode === 'both' || viewMode === 'upper' || viewMode === 'split' || isSecondarySplit;
+  const showLower = (viewMode === 'both' || viewMode === 'lower' || viewMode === 'split') && !isSecondarySplit;
 
-    if (isWireframe) {
-      const upperWire = new THREE.MeshBasicMaterial({
-        color: '#2563EB',
+  const hasUpper = upperFiles.length > 0;
+  const hasLower = lowerFiles.length > 0;
+
+  // Material selection based on render mode
+  const clippingPlanesArray = useMemo(() => (clippingPlane ? [clippingPlane] : []), [clippingPlane]);
+
+  const { toothMaterial, gingivaMaterial, upperCustomMaterial, lowerCustomMaterial } = useMemo(() => {
+    if (renderMode === 'wireframe') {
+      const wire = new THREE.MeshBasicMaterial({
+        color: '#38BDF8',
         wireframe: true,
         clippingPlanes: clippingPlanesArray,
-        clipShadows: true,
-      });
-      const lowerWire = new THREE.MeshBasicMaterial({
-        color: '#059669',
-        wireframe: true,
-        clippingPlanes: clippingPlanesArray,
-        clipShadows: true,
       });
       return { 
-        toothMaterial: upperWire, 
-        gingivaMaterial: upperWire,
-        upperCustomMaterial: upperWire,
-        lowerCustomMaterial: lowerWire
+        toothMaterial: wire, 
+        gingivaMaterial: wire,
+        upperCustomMaterial: wire,
+        lowerCustomMaterial: wire
       };
     }
 
-    if (isSolid) {
-      const solidUpper = new THREE.MeshLambertMaterial({
-        color: '#F1F5F9',
+    if (renderMode === 'solid') {
+      const solid = new THREE.MeshLambertMaterial({
+        color: '#FFFFFF',
         clippingPlanes: clippingPlanesArray,
-        clipShadows: true,
-      });
-      const solidLower = new THREE.MeshLambertMaterial({
-        color: '#E2E8F0',
-        clippingPlanes: clippingPlanesArray,
-        clipShadows: true,
-      });
-      const solidGingiva = new THREE.MeshLambertMaterial({
-        color: '#CBD5E1',
-        clippingPlanes: clippingPlanesArray,
-        clipShadows: true,
       });
       return { 
-        toothMaterial: solidUpper, 
-        gingivaMaterial: solidGingiva,
-        upperCustomMaterial: solidUpper,
-        lowerCustomMaterial: solidLower
+        toothMaterial: solid, 
+        gingivaMaterial: solid,
+        upperCustomMaterial: solid,
+        lowerCustomMaterial: solid
       };
     }
 
-    if (isXRay) {
+    if (renderMode === 'xray') {
       const xrayUpper = new THREE.MeshPhysicalMaterial({
-        color: '#7DD3FC',
+        color: '#93C5FD',
         transparent: true,
         opacity: 0.55,
         transmission: 0.65,
@@ -274,7 +186,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         clippingPlanes: clippingPlanesArray,
       });
       const xrayGingiva = new THREE.MeshPhysicalMaterial({
-        color: '#F472B6',
+        color: '#CBD5E1',
         transparent: true,
         opacity: 0.35,
         transmission: 0.6,
@@ -290,55 +202,23 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       };
     }
 
-    // Default: 'shaded' - Realistic Dental Porcelain & Enamel with Studio Clearcoat
-    const shadedTooth = new THREE.MeshPhysicalMaterial({
+    // Default: 'shaded' - Pure Clinical Porcelain / Gypsum White with Studio Clearcoat
+    const pureWhiteDental = new THREE.MeshPhysicalMaterial({
       color: '#FFFFFF',
-      roughness: 0.16,
-      metalness: 0.02,
+      roughness: 0.18,
+      metalness: 0.01,
       clearcoat: 0.85,
-      clearcoatRoughness: 0.1,
+      clearcoatRoughness: 0.08,
       reflectivity: 0.9,
       clippingPlanes: clippingPlanesArray,
       clipShadows: true,
     });
 
-    const shadedGingiva = new THREE.MeshStandardMaterial({
-      color: '#E27885', // natural coral gum pink
-      roughness: 0.38,
-      metalness: 0.02,
-      clippingPlanes: clippingPlanesArray,
-      clipShadows: true,
-    });
-
-    // Custom Upper Arch (Realistic Anatomical Colors matching reference image)
-    const upperCustom = new THREE.MeshPhysicalMaterial({
-      vertexColors: true,
-      roughness: 0.20,
-      metalness: 0.01,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.1,
-      reflectivity: 0.8,
-      clippingPlanes: clippingPlanesArray,
-      clipShadows: true,
-    });
-
-    // Custom Lower Arch (Realistic Anatomical Colors matching reference image)
-    const lowerCustom = new THREE.MeshPhysicalMaterial({
-      vertexColors: true,
-      roughness: 0.20,
-      metalness: 0.01,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.1,
-      reflectivity: 0.8,
-      clippingPlanes: clippingPlanesArray,
-      clipShadows: true,
-    });
-
     return { 
-      toothMaterial: shadedTooth, 
-      gingivaMaterial: shadedGingiva,
-      upperCustomMaterial: upperCustom,
-      lowerCustomMaterial: lowerCustom
+      toothMaterial: pureWhiteDental, 
+      gingivaMaterial: pureWhiteDental,
+      upperCustomMaterial: pureWhiteDental,
+      lowerCustomMaterial: pureWhiteDental
     };
   }, [renderMode, clippingPlanesArray]);
 
@@ -352,8 +232,6 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   };
 
   // Calculate natural clinical centric occlusion heights:
-  // When both arches are visible, lift Upper so lowest cusps touch Y = 0
-  // and lower Lower so highest cusps touch Y = 0, creating the true natural bite.
   const upperBBoxHeight = useMemo(() => {
     if (!selectedUpperFile?.customBufferGeometry) return 15.6;
     selectedUpperFile.customBufferGeometry.computeBoundingBox();
@@ -369,10 +247,6 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   }, [selectedLowerFile]);
 
   const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
-  // Natural Angle Class I Closed Centric Occlusion:
-  // - Zero-gap molar & premolar interdigitation
-  // - Natural 1.6 mm anterior overjet and 2.5 mm overbite
-  // - Perfectly closed aesthetic bite
   const upperPosY = isBothVisible ? (upperBBoxHeight * 0.352) : 0;
   const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.395) : 0;
   const lowerPosZ = isBothVisible ? -0.5 : 0;
@@ -387,9 +261,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
           onPointerMove={(e) => handlePointerMove(e, 'upper')}
           onPointerOut={handlePointerOut}
         >
-          {upperRenderGeom ? (
+          {selectedUpperFile?.customBufferGeometry ? (
             <mesh
-              geometry={upperRenderGeom}
+              geometry={selectedUpperFile.customBufferGeometry}
               material={upperCustomMaterial}
               castShadow
               receiveShadow
@@ -431,9 +305,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
           onPointerMove={(e) => handlePointerMove(e, 'lower')}
           onPointerOut={handlePointerOut}
         >
-          {lowerRenderGeom ? (
+          {selectedLowerFile?.customBufferGeometry ? (
             <mesh
-              geometry={lowerRenderGeom}
+              geometry={selectedLowerFile.customBufferGeometry}
               material={lowerCustomMaterial}
               castShadow
               receiveShadow

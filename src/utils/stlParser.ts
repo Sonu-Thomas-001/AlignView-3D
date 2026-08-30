@@ -230,19 +230,6 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
   geometry.computeVertexNormals();
   geometry.center();
 
-  // 4. Apply Realistic Anatomical Vertex Colors (Coral Pink Gums + Pearlescent White Teeth)
-  applyAnatomicalDentalColors(geometry, arch);
-
   return geometry;
 }
 
-import { segmentDentalMeshAI } from './aiDentalSegmenter';
-
-/**
- * Approach 2: AI Multi-Scale Deep Geometric Dental Mesh Segmentation Engine
- * Automatically classifies teeth crowns (pure white) vs gingival mucosa (coral-rose)
- * using deep geometric features, curvature tensors, and graph relaxation.
- */
-export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch: 'upper' | 'lower'): THREE.BufferGeometry {
-  return segmentDentalMeshAI(geometry, arch);
-}
