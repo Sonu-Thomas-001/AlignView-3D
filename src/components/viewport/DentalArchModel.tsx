@@ -283,11 +283,26 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     }
   };
 
-  // Position offsets:
-  // When both arches are visible, place upper slightly above and lower slightly below occlusal plane
+  // Calculate natural clinical centric occlusion heights:
+  // When both arches are visible, lift Upper so lowest cusps touch Y = 0
+  // and lower Lower so highest cusps touch Y = 0, creating the true natural bite.
+  const upperBBoxHeight = useMemo(() => {
+    if (!selectedUpperFile?.customBufferGeometry) return 15.6;
+    selectedUpperFile.customBufferGeometry.computeBoundingBox();
+    const bbox = selectedUpperFile.customBufferGeometry.boundingBox;
+    return bbox ? (bbox.max.y - bbox.min.y) : 15.6;
+  }, [selectedUpperFile]);
+
+  const lowerBBoxHeight = useMemo(() => {
+    if (!selectedLowerFile?.customBufferGeometry) return 13.2;
+    selectedLowerFile.customBufferGeometry.computeBoundingBox();
+    const bbox = selectedLowerFile.customBufferGeometry.boundingBox;
+    return bbox ? (bbox.max.y - bbox.min.y) : 13.2;
+  }, [selectedLowerFile]);
+
   const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
-  const upperPosY = isBothVisible ? 3.5 : 0;
-  const lowerPosY = isBothVisible ? -3.5 : 0;
+  const upperPosY = isBothVisible ? (upperBBoxHeight * 0.49) : 0;
+  const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.49) : 0;
 
   return (
     <group ref={groupRef} onPointerDown={handlePointerDown}>
