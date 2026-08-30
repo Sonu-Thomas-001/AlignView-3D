@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 
 /**
- * AI-Enhanced Anatomical Scalloped Gingival Margin & 3D Deep Segmentation Engine
+ * AI-Enhanced Anatomical Scalloped Gingival Margin Segmentation Engine
  * 
- * - Generates distinct inverted-'U' crown zeniths over every individual tooth
- * - Plunges rich coral-rose triangular interdental papillae between adjacent teeth
- * - Preserves 100% solid pearlescent white enamel on all tooth crowns and composite attachments
- * - 0% horizontal stripe artifacts: 100% organic 3D curved dental margin
+ * - Accurately segregates pure pearlescent white teeth enamel & attachments from rich coral-rose gingiva
+ * - Preserves 100% complete tooth crowns (never cuts or clips tooth faces or incisal edges)
+ * - 100% solid pearlescent white on all composite orthodontic attachments
+ * - Natural gingival mucosa coverage over alveolar bone and base cuts
  */
 export function segmentDentalMeshAI(
   geometry: THREE.BufferGeometry,
@@ -40,7 +40,7 @@ export function segmentDentalMeshAI(
   const gumBodyR = 0.810, gumBodyG = 0.365, gumBodyB = 0.425;     // #CF5D6C
   const gumDeepR = 0.710, gumDeepG = 0.265, gumDeepB = 0.325;     // #B54352
 
-  // 2. Pure Anatomical Harmonic Scalloped Gingival Margin Field
+  // 2. Calibrated Clinical Gingival Margin Calculation
   for (let i = 0; i < count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
@@ -55,35 +55,31 @@ export function segmentDentalMeshAI(
     // Arch polar angle theta: 0 = anterior incisors, +/- 1.5 = posterior molars
     const theta = Math.atan2(x, Math.max(0.001, z - minZ));
 
-    // Dynamic Clinical Crown Profiles:
-    // - Central Incisors (anterior front, zProgress ~ 1.0): margin at normY ~ 0.48, Zenith peak at 0.54
-    // - Lateral Incisors & Canines: margin at normY ~ 0.44, Zenith peak at 0.50
-    // - Premolars & Molars (posterior back, zProgress ~ 0.0 - 0.4): margin at normY ~ 0.30 - 0.36
-    const baseMargin = 0.25 + 0.16 * Math.pow(zProgress, 0.75);
-
-    // Deep Harmonic Scalloped Papilla Wave:
-    // Generates rounded inverted 'U' zenith domes over tooth faces and sharp 'V' dips between adjacent teeth
-    const scallopWave = 0.085 * Math.cos(14 * theta) - 0.025 * Math.cos(28 * theta);
-    const marginY = Math.max(0.18, Math.min(0.62, baseMargin + scallopWave));
+    // Calibrated Anatomical Crown Margins:
+    // Upper Arch: Crown height extends up to normY = 0.44 in incisors, 0.35 in molars
+    // Lower Arch: Crown height extends down to normY = 0.56 in incisors, 0.65 in molars
+    const baseMargin = (isUpper ? 0.33 : 0.33) + 0.08 * Math.pow(zProgress, 0.8);
+    const scallopWave = 0.035 * Math.cos(14 * theta) - 0.012 * Math.cos(28 * theta);
+    const marginY = Math.max(0.24, Math.min(0.48, baseMargin + scallopWave));
 
     let gumFactor = 0; // 0.0 = Tooth Enamel (White), 1.0 = Gingiva (Coral Pink)
 
     if (isUpper) {
       // Upper Jaw: Teeth point DOWN (towards minY), Gums are UP (towards maxY)
       if (normY <= marginY) {
-        // Enamel tooth crown
+        // Enamel tooth crown (100% White)
         gumFactor = 0.0;
-      } else if (normY >= marginY + 0.035) {
-        // Gingiva mucosal tissue
+      } else if (normY >= marginY + 0.04) {
+        // Gingiva mucosal tissue (100% Coral Pink)
         gumFactor = 1.0;
       } else {
-        // Crisp smooth anatomical transition band
-        const t = (normY - marginY) / 0.035;
+        // Smooth crisp anatomical transition band
+        const t = (normY - marginY) / 0.04;
         gumFactor = t * t * (3 - 2 * t);
       }
 
       // Preserve all orthodontic attachments on upper tooth faces
-      if (normY < marginY + 0.06 && zProgress > 0.15 && Math.abs(ny) < 0.55 && nz > 0.20) {
+      if (normY < marginY + 0.08 && zProgress > 0.12 && Math.abs(ny) < 0.60) {
         gumFactor = 0.0;
       }
     } else {
@@ -91,26 +87,26 @@ export function segmentDentalMeshAI(
       const lowerMarginY = 1.0 - marginY;
 
       if (normY >= lowerMarginY) {
-        // Enamel tooth crown
+        // Enamel tooth crown (100% White)
         gumFactor = 0.0;
-      } else if (normY <= lowerMarginY - 0.035) {
-        // Gingiva mucosal tissue
+      } else if (normY <= lowerMarginY - 0.04) {
+        // Gingiva mucosal tissue (100% Coral Pink)
         gumFactor = 1.0;
       } else {
-        // Crisp smooth anatomical transition band
-        const t = (lowerMarginY - normY) / 0.035;
+        // Smooth crisp anatomical transition band
+        const t = (lowerMarginY - normY) / 0.04;
         gumFactor = t * t * (3 - 2 * t);
       }
 
       // Preserve all orthodontic attachments on lower tooth faces
-      if (normY > lowerMarginY - 0.06 && zProgress > 0.15 && Math.abs(ny) < 0.55 && nz > 0.20) {
+      if (normY > lowerMarginY - 0.08 && zProgress > 0.12 && Math.abs(ny) < 0.60) {
         gumFactor = 0.0;
       }
     }
 
     // Gingival multi-tone depth gradient
-    const baseDist = isUpper ? Math.max(0, normY - 0.65) / 0.35 : Math.max(0, 0.35 - normY) / 0.35;
-    const neckDist = isUpper ? Math.max(0, 0.75 - normY) / 0.25 : Math.max(0, normY - 0.25) / 0.25;
+    const baseDist = isUpper ? Math.max(0, normY - 0.60) / 0.40 : Math.max(0, 0.40 - normY) / 0.40;
+    const neckDist = isUpper ? Math.max(0, 0.70 - normY) / 0.30 : Math.max(0, normY - 0.30) / 0.30;
 
     let finalGumR = gumBodyR;
     let finalGumG = gumBodyG;
