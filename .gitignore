@@ -39,3 +39,9 @@ next-env.d.ts
 /public/STL/
 *.stl
 
+# Python Virtual Environment & Caches
+.venv/
+__pycache__/
+*.pyc
+
+

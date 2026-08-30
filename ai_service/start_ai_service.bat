@@ -7,17 +7,20 @@ echo   AlignView-3D: 3D MeshSegNet AI Segmentation Worker
 echo =======================================================
 echo.
 
-where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERROR] Python is not found in PATH. Please install Python 3.9+ from https://python.org
-    pause
-    exit /b 1
+if exist ".venv\Scripts\python.exe" (
+    echo [1/2] Activating Python Virtual Environment (.venv)...
+    set "PYTHON_EXE=.venv\Scripts\python.exe"
+) else (
+    where python >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo [ERROR] Python is not found in PATH. Please install Python 3.9+ from https://python.org
+        pause
+        exit /b 1
+    )
+    set "PYTHON_EXE=python"
 )
 
-echo [1/3] Checking dependencies...
-python -m pip install -r requirements.txt --quiet --no-warn-script-location
-
-echo [2/3] Starting MeshSegNet AI worker on http://127.0.0.1:8000 ...
-python server.py
+echo [2/2] Starting MeshSegNet AI worker on http://127.0.0.1:8000 ...
+"%PYTHON_EXE%" server.py
 
 pause
