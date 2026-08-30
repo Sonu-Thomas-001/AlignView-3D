@@ -2,47 +2,83 @@ import { create } from 'zustand';
 import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
 
-const INITIAL_UPPER_FILES: STLFileInfo[] = Array.from({ length: 25 }, (_, i) => {
-  const num = (i + 1).toString().padStart(2, '0');
-  const name = `Krishnapriya Upper jaw - ${num} - Model.stl`;
-  return {
-    id: `stl_Krishnapriya_Upper_jaw___${num}___Model_stl`,
-    name,
+const INITIAL_UPPER_FILES: STLFileInfo[] = [
+  {
+    id: 'stl_Krishnapriya_Upper_jaw___01___Template_stl',
+    name: 'Krishnapriya Upper jaw - 01 - Template.stl',
     arch: 'upper',
-    stage: i + 1,
+    stage: 1,
     date: '29 Aug 2026',
-    fileSize: `${(13.8 + (i % 4) * 0.3).toFixed(1)} MB`,
-    verticesCount: 871800,
-    trianglesCount: 290600,
+    fileSize: '14.1 MB',
+    verticesCount: 882000,
+    trianglesCount: 294000,
     dimensions: {
       width: 63.0,
       depth: 51.9,
       height: 15.6,
     },
-    customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
-  };
-});
+    customUrl: `/api/stl-files/${encodeURIComponent('Krishnapriya Upper jaw - 01 - Template.stl')}`,
+  },
+  ...Array.from({ length: 25 }, (_, i) => {
+    const num = (i + 1).toString().padStart(2, '0');
+    const name = `Krishnapriya Upper jaw - ${num} - Model.stl`;
+    return {
+      id: `stl_Krishnapriya_Upper_jaw___${num}___Model_stl`,
+      name,
+      arch: 'upper' as const,
+      stage: i + 1,
+      date: '29 Aug 2026',
+      fileSize: `${(13.8 + (i % 4) * 0.3).toFixed(1)} MB`,
+      verticesCount: 871800,
+      trianglesCount: 290600,
+      dimensions: {
+        width: 63.0,
+        depth: 51.9,
+        height: 15.6,
+      },
+      customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
+    };
+  }),
+];
 
-const INITIAL_LOWER_FILES: STLFileInfo[] = Array.from({ length: 7 }, (_, i) => {
-  const num = (i + 1).toString().padStart(2, '0');
-  const name = `Krishnapriya Lower jaw - ${num} - Model.stl`;
-  return {
-    id: `stl_Krishnapriya_Lower_jaw___${num}___Model_stl`,
-    name,
+const INITIAL_LOWER_FILES: STLFileInfo[] = [
+  {
+    id: 'stl_Krishnapriya_Lower_jaw___01___Template_stl',
+    name: 'Krishnapriya Lower jaw - 01 - Template.stl',
     arch: 'lower',
-    stage: i + 1,
+    stage: 1,
     date: '29 Aug 2026',
-    fileSize: '11.6 MB',
-    verticesCount: 733200,
-    trianglesCount: 244400,
+    fileSize: '12.3 MB',
+    verticesCount: 742000,
+    trianglesCount: 247000,
     dimensions: {
       width: 58.5,
       depth: 48.0,
       height: 14.8,
     },
-    customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
-  };
-});
+    customUrl: `/api/stl-files/${encodeURIComponent('Krishnapriya Lower jaw - 01 - Template.stl')}`,
+  },
+  ...Array.from({ length: 7 }, (_, i) => {
+    const num = (i + 1).toString().padStart(2, '0');
+    const name = `Krishnapriya Lower jaw - ${num} - Model.stl`;
+    return {
+      id: `stl_Krishnapriya_Lower_jaw___${num}___Model_stl`,
+      name,
+      arch: 'lower' as const,
+      stage: i + 1,
+      date: '29 Aug 2026',
+      fileSize: '11.6 MB',
+      verticesCount: 733200,
+      trianglesCount: 244400,
+      dimensions: {
+        width: 58.5,
+        depth: 48.0,
+        height: 14.8,
+      },
+      customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
+    };
+  }),
+];
 
 interface ViewerState {
   upperFiles: STLFileInfo[];

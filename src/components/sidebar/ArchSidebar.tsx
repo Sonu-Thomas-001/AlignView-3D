@@ -233,6 +233,7 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({
           const isSelected = file.id === selectedId;
           const isMenuOpen = activeMenuId === file.id;
           const stageFormatted = file.stage ? file.stage.toString().padStart(2, '0') : null;
+          const isTemplate = /template/i.test(file.name);
 
           return (
             <div
@@ -257,15 +258,21 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({
                       ? (isUpper ? 'text-blue-950' : 'text-emerald-950') 
                       : 'text-slate-800 group-hover:text-slate-900'
                   }`}>
-                    {stageFormatted ? `Stage ${stageFormatted}` : file.name}
+                    {isTemplate 
+                      ? `Stage ${stageFormatted || '01'} (Template)` 
+                      : stageFormatted 
+                      ? `Stage ${stageFormatted}` 
+                      : file.name}
                   </p>
                   {stageFormatted && (
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                      isSelected
+                      isTemplate
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : isSelected
                         ? isUpper ? 'bg-blue-200/70 text-blue-800' : 'bg-emerald-200/70 text-emerald-800'
                         : 'bg-slate-100 text-slate-600'
                     }`}>
-                      #{stageFormatted}
+                      {isTemplate ? 'Template' : `#${stageFormatted}`}
                     </span>
                   )}
                 </div>

@@ -130,6 +130,13 @@ export function sortSTLFilesByStage(files: STLFileInfo[]): STLFileInfo[] {
     const stageA = a.stage ?? 999;
     const stageB = b.stage ?? 999;
     if (stageA !== stageB) return stageA - stageB;
+
+    // Prioritize Template files before Model files for the same stage
+    const isTemplateA = /template/i.test(a.name);
+    const isTemplateB = /template/i.test(b.name);
+    if (isTemplateA && !isTemplateB) return -1;
+    if (!isTemplateA && isTemplateB) return 1;
+
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
 }
