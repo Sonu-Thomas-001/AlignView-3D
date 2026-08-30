@@ -130,36 +130,36 @@ const ScreenshotWorker: React.FC = () => {
   return null;
 };
 
-// Sleek Dark Studio Reflective Floor with soft blur and dramatic contact shadow
-const StudioReflectiveFloor: React.FC = () => {
+// Studio Reflective Floor adaptive to Dark & Light theme
+const StudioReflectiveFloor: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   return (
     <group position={[0, -13.5, 0]}>
-      {/* Reflective Dark Floor Plane */}
+      {/* Reflective Studio Floor Plane */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[160, 160]} />
         <MeshReflectorMaterial
           blur={[300, 100]}
           resolution={1024}
-          mirror={0.32}
+          mirror={isDark ? 0.32 : 0.35}
           mixBlur={1.0}
-          mixStrength={1.8}
-          roughness={0.24}
+          mixStrength={isDark ? 1.8 : 1.6}
+          roughness={isDark ? 0.24 : 0.28}
           depthScale={1.2}
           minDepthThreshold={0.4}
           maxDepthThreshold={1.4}
-          color="#111827"
-          metalness={0.12}
+          color={isDark ? "#111827" : "#D2DBE8"}
+          metalness={isDark ? 0.12 : 0.06}
         />
       </mesh>
 
-      {/* Deep Contact Ambient Occlusion Shadow */}
+      {/* Contact Ambient Occlusion Shadow */}
       <ContactShadows
         position={[0, 0.05, 0]}
-        opacity={0.68}
-        scale={70}
+        opacity={isDark ? 0.68 : 0.42}
+        scale={isDark ? 70 : 65}
         blur={2.4}
         far={20}
-        color="#000000"
+        color={isDark ? "#000000" : "#2D3748"}
       />
     </group>
   );
@@ -174,7 +174,10 @@ export const DentalCanvas: React.FC = () => {
     sectionAxis, 
     addMeasurementPoint,
     viewMode,
+    studioTheme,
   } = useViewerStore();
+
+  const isDark = studioTheme === 'dark';
 
   // Dynamic clipping plane for sectioning tool
   const clippingPlane = useMemo(() => {
@@ -199,12 +202,22 @@ export const DentalCanvas: React.FC = () => {
   const isSplit = viewMode === 'split';
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-gradient-to-b from-[#0F172A] via-[#0B0F19] to-[#080C14]">
+    <div className={`w-full h-full relative overflow-hidden transition-colors duration-300 ${
+      isDark 
+        ? 'bg-gradient-to-b from-[#0F172A] via-[#0B0F19] to-[#080C14]' 
+        : 'bg-gradient-to-b from-[#D2DAE8] via-[#DEE5F2] to-[#CBD5E6]'
+    }`}>
       {isSplit ? (
-        <div className="w-full h-full grid grid-cols-2 divide-x divide-slate-800">
+        <div className={`w-full h-full grid grid-cols-2 divide-x ${
+          isDark ? 'divide-slate-800' : 'divide-slate-300'
+        }`}>
           {/* Split View Left: Initial / Upper */}
           <div className="relative w-full h-full">
-            <div className="absolute top-14 left-4 z-10 bg-slate-900/85 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold text-slate-200 shadow-sm border border-slate-700">
+            <div className={`absolute top-14 left-4 z-10 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold shadow-sm border ${
+              isDark 
+                ? 'bg-slate-900/85 text-slate-200 border-slate-700' 
+                : 'bg-white/85 text-slate-700 border-slate-200/80'
+            }`}>
               Stage 1 (Initial)
             </div>
             <Canvas
@@ -212,21 +225,25 @@ export const DentalCanvas: React.FC = () => {
               camera={{ position: [0, 1, 78], fov: 36 }}
               gl={{ antialias: true, preserveDrawingBuffer: true, localClippingEnabled: true }}
             >
-              <color attach="background" args={['#0F172A']} />
-              <ambientLight intensity={1.1} />
-              <directionalLight position={[18, 28, 30]} intensity={2.0} castShadow />
-              <directionalLight position={[-18, 12, 20]} intensity={0.9} />
-              <directionalLight position={[0, 32, -22]} intensity={1.1} color="#93C5FD" />
+              <color attach="background" args={[isDark ? '#0F172A' : '#D8E0ED']} />
+              <ambientLight intensity={isDark ? 1.1 : 1.4} />
+              <directionalLight position={[18, 28, 30]} intensity={isDark ? 2.0 : 1.6} castShadow />
+              <directionalLight position={[-18, 12, 20]} intensity={isDark ? 0.9 : 0.8} />
+              <directionalLight position={[0, 32, -22]} intensity={isDark ? 1.1 : 0.7} color={isDark ? "#93C5FD" : "#CAD8F0"} />
               
               <DentalArchModel stage={1} totalStages={totalSteps} isSecondarySplit />
-              <StudioReflectiveFloor />
+              <StudioReflectiveFloor isDark={isDark} />
               <CameraController />
             </Canvas>
           </div>
 
           {/* Split View Right: Current Stage */}
           <div className="relative w-full h-full">
-            <div className="absolute top-14 left-4 z-10 bg-slate-900/85 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold text-sky-400 shadow-sm border border-sky-600/40">
+            <div className={`absolute top-14 left-4 z-10 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold shadow-sm border ${
+              isDark 
+                ? 'bg-slate-900/85 text-sky-400 border-sky-600/40' 
+                : 'bg-white/85 text-blue-700 border-blue-200'
+            }`}>
               Stage {currentStep} (Current)
             </div>
             <Canvas
@@ -234,14 +251,14 @@ export const DentalCanvas: React.FC = () => {
               camera={{ position: [0, 1, 78], fov: 36 }}
               gl={{ antialias: true, preserveDrawingBuffer: true, localClippingEnabled: true }}
             >
-              <color attach="background" args={['#0B0F19']} />
-              <ambientLight intensity={1.1} />
-              <directionalLight position={[18, 28, 30]} intensity={2.0} castShadow />
-              <directionalLight position={[-18, 12, 20]} intensity={0.9} />
-              <directionalLight position={[0, 32, -22]} intensity={1.1} color="#93C5FD" />
+              <color attach="background" args={[isDark ? '#0B0F19' : '#D5DEEC']} />
+              <ambientLight intensity={isDark ? 1.1 : 1.4} />
+              <directionalLight position={[18, 28, 30]} intensity={isDark ? 2.0 : 1.6} castShadow />
+              <directionalLight position={[-18, 12, 20]} intensity={isDark ? 0.9 : 0.8} />
+              <directionalLight position={[0, 32, -22]} intensity={isDark ? 1.1 : 0.7} color={isDark ? "#93C5FD" : "#CAD8F0"} />
               
               <DentalArchModel stage={currentStep} totalStages={totalSteps} />
-              <StudioReflectiveFloor />
+              <StudioReflectiveFloor isDark={isDark} />
               <CameraController />
             </Canvas>
           </div>
@@ -254,16 +271,16 @@ export const DentalCanvas: React.FC = () => {
           gl={{ antialias: true, preserveDrawingBuffer: true, localClippingEnabled: true }}
           className="cursor-grab active:cursor-grabbing"
         >
-          {/* Deep studio dark background */}
-          <color attach="background" args={['#0F172A']} />
+          {/* Studio background matching active theme */}
+          <color attach="background" args={[isDark ? '#0F172A' : '#D6DFED']} />
           
-          {/* Studio Dental Lighting Setup with brilliant porcelain contrast */}
-          <ambientLight intensity={1.15} />
+          {/* Studio Dental Lighting Setup */}
+          <ambientLight intensity={isDark ? 1.15 : 1.35} />
           
           {/* Key Light for brilliant enamel highlights */}
           <directionalLight
             position={[18, 28, 32]}
-            intensity={2.2}
+            intensity={isDark ? 2.2 : 1.85}
             castShadow
             shadow-mapSize={[2048, 2048]}
             shadow-camera-near={10}
@@ -277,13 +294,13 @@ export const DentalCanvas: React.FC = () => {
           {/* Fill Light for natural anatomical shadows */}
           <directionalLight position={[-22, 12, 22]} intensity={0.95} color="#FFFFFF" />
           {/* Top Softbox Light for smooth anatomical reflections */}
-          <directionalLight position={[0, 35, 10]} intensity={0.9} color="#FFFFFF" />
+          <directionalLight position={[0, 35, 10]} intensity={isDark ? 0.9 : 0.8} color="#FFFFFF" />
           {/* Rim Light for high-contrast edge definition */}
-          <directionalLight position={[0, 25, -30]} intensity={1.1} color="#93C5FD" />
+          <directionalLight position={[0, 25, -30]} intensity={isDark ? 1.1 : 0.95} color={isDark ? "#93C5FD" : "#CAD8F0"} />
           {/* Floor Bounce Light */}
-          <directionalLight position={[0, -18, 15]} intensity={0.4} color="#CBD5E1" />
+          <directionalLight position={[0, -18, 15]} intensity={isDark ? 0.4 : 0.35} color={isDark ? "#CBD5E1" : "#FFFFFF"} />
 
-          {/* Pure White Dental 3D Model */}
+          {/* Dental 3D Model with customizable color */}
           <DentalArchModel
             stage={currentStep}
             totalStages={totalSteps}
@@ -294,8 +311,8 @@ export const DentalCanvas: React.FC = () => {
           {/* Measurement markers & lines */}
           <MeasurementLines />
 
-          {/* Studio Dark Floor with Glossy Reflection & Contact Shadow */}
-          <StudioReflectiveFloor />
+          {/* Studio Floor with Glossy Reflection & Contact Shadow */}
+          <StudioReflectiveFloor isDark={isDark} />
 
           {/* Camera Controller with smooth snaps */}
           <CameraController />

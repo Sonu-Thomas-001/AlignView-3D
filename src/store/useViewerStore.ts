@@ -108,6 +108,13 @@ interface ViewerState {
     height: number;
   };
   
+  // Theme & Model Color Customization
+  studioTheme: 'dark' | 'light';
+  setStudioTheme: (theme: 'dark' | 'light') => void;
+  toggleStudioTheme: () => void;
+  modelColor: string;
+  setModelColor: (color: string) => void;
+
   // Actions
   setViewMode: (mode: ViewMode) => void;
   setRenderMode: (mode: RenderMode) => void;
@@ -144,6 +151,13 @@ interface ViewerState {
 }
 
 export const useViewerStore = create<ViewerState>((set, get) => ({
+  studioTheme: 'dark',
+  setStudioTheme: (theme) => set({ studioTheme: theme }),
+  toggleStudioTheme: () => set((s) => ({ studioTheme: s.studioTheme === 'dark' ? 'light' : 'dark' })),
+
+  modelColor: '#FFFFFF',
+  setModelColor: (color) => set({ modelColor: color }),
+
   patientName: 'Krishnapriya',
   setPatientName: (name) => set({ patientName: name }),
 

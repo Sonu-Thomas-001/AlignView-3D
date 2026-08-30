@@ -32,6 +32,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     selectedLowerId,
     setHoveredTooth,
     isPlaying,
+    modelColor,
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
@@ -153,7 +154,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
     if (renderMode === 'solid') {
       const solid = new THREE.MeshLambertMaterial({
-        color: '#FFFFFF',
+        color: modelColor || '#FFFFFF',
         clippingPlanes: clippingPlanesArray,
       });
       return { 
@@ -202,9 +203,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       };
     }
 
-    // Default: 'shaded' - Pure Clinical Porcelain / Gypsum White with Studio Clearcoat
-    const pureWhiteDental = new THREE.MeshPhysicalMaterial({
-      color: '#FFFFFF',
+    // Default: 'shaded' - Clinical Dental Ceramic / Gypsum with Studio Clearcoat
+    const shadedDental = new THREE.MeshPhysicalMaterial({
+      color: modelColor || '#FFFFFF',
       roughness: 0.18,
       metalness: 0.01,
       clearcoat: 0.85,
@@ -215,12 +216,12 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     });
 
     return { 
-      toothMaterial: pureWhiteDental, 
-      gingivaMaterial: pureWhiteDental,
-      upperCustomMaterial: pureWhiteDental,
-      lowerCustomMaterial: pureWhiteDental
+      toothMaterial: shadedDental, 
+      gingivaMaterial: shadedDental,
+      upperCustomMaterial: shadedDental,
+      lowerCustomMaterial: shadedDental
     };
-  }, [renderMode, clippingPlanesArray]);
+  }, [renderMode, clippingPlanesArray, modelColor]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (activeTool === 'measure') {

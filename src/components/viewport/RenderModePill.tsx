@@ -4,6 +4,7 @@ import React from 'react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { RenderMode } from '@/types/dental';
 import { Box, Eye } from 'lucide-react';
+import { ModelColorPicker } from './ModelColorPicker';
 
 const ShadedIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -34,11 +35,20 @@ const RENDER_OPTIONS: RenderOption[] = [
 ];
 
 export const RenderModePill: React.FC = () => {
-  const { renderMode, setRenderMode } = useViewerStore();
+  const { renderMode, setRenderMode, studioTheme } = useViewerStore();
+  const isDark = studioTheme === 'dark';
 
   return (
-    <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-20 select-none">
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-floating border border-slate-200/80 p-0.5 sm:p-1 flex items-center gap-0.5 sm:gap-1">
+    <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-20 select-none flex items-center gap-1.5 sm:gap-2">
+      {/* Model Shade & Color Picker */}
+      <ModelColorPicker />
+
+      {/* Render Mode Group */}
+      <div className={`backdrop-blur-md rounded-2xl shadow-floating border p-0.5 sm:p-1 flex items-center gap-0.5 sm:gap-1 transition-colors ${
+        isDark
+          ? 'bg-slate-900/90 border-slate-700/80 text-white'
+          : 'bg-white/95 border-slate-200/80 text-slate-800'
+      }`}>
         {RENDER_OPTIONS.map((opt) => {
           const isActive = renderMode === opt.id;
           return (
@@ -49,6 +59,8 @@ export const RenderModePill: React.FC = () => {
               className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-medium transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm'
+                  : isDark
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
               title={opt.label}

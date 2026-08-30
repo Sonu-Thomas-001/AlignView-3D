@@ -13,7 +13,9 @@ import {
   FolderOpen,
   LogOut,
   UserCheck,
-  User
+  User,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
 
@@ -36,8 +38,11 @@ export const Header: React.FC = () => {
     upperFiles,
     lowerFiles,
     patientName,
+    studioTheme,
+    toggleStudioTheme,
   } = useViewerStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const isDark = studioTheme === 'dark';
 
   const totalFiles = upperFiles.length + lowerFiles.length;
   const hasFiles = totalFiles > 0;
@@ -156,6 +161,26 @@ export const Header: React.FC = () => {
         >
           <Camera className="w-3.5 h-3.5 text-slate-500" />
           <span className="hidden md:inline">Screenshot</span>
+        </button>
+
+        {/* Theme Switcher Button */}
+        <button
+          id="btn-header-theme-toggle"
+          onClick={toggleStudioTheme}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-all shadow-sm"
+          title={isDark ? 'Switch to Light Studio' : 'Switch to Dark Studio'}
+        >
+          {isDark ? (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden lg:inline text-amber-600 font-semibold">Light</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="hidden lg:inline text-indigo-600 font-semibold">Dark</span>
+            </>
+          )}
         </button>
 
         {/* Full Screen */}
