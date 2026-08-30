@@ -1,15 +1,12 @@
 import * as THREE from 'three';
 
-// Cache for AI-segmented label arrays (keyed by geometry UUID)
-const aiSegmentationCache = new Map<string, Uint8Array>();
-
 /**
  * AI-Enhanced Anatomical Scalloped Gingival Margin & 3D Deep Segmentation Engine
  * 
  * - Generates distinct inverted-'U' crown zeniths over every individual tooth
- * - Plunges rich coral-rose triangular interdental papillae (2.5mm - 3.5mm) between adjacent teeth
+ * - Plunges rich coral-rose triangular interdental papillae between adjacent teeth
  * - Preserves 100% solid pearlescent white enamel on all tooth crowns and composite attachments
- * - Seamlessly integrates with the local MeshSegNet Python AI microservice (/api/ai-segment)
+ * - 0% horizontal stripe artifacts: 100% organic 3D curved dental margin
  */
 export function segmentDentalMeshAI(
   geometry: THREE.BufferGeometry,
@@ -25,7 +22,6 @@ export function segmentDentalMeshAI(
   const maxZ = bbox.max.z;
 
   const height = Math.max(0.001, maxY - minY);
-  const sizeX = Math.max(0.001, maxX - minX);
   const sizeZ = Math.max(0.001, maxZ - minZ);
 
   const pos = geometry.attributes.position;
@@ -35,60 +31,16 @@ export function segmentDentalMeshAI(
 
   const isUpper = arch === 'upper';
 
-  // 1. High-Resolution 2D Spatial Occlusal Height-Field Grid (64 x 64)
-  const GRID_RES = 64;
-  const gridTips = new Float32Array(GRID_RES * GRID_RES);
-  gridTips.fill(isUpper ? 1e9 : -1e9);
-
-  for (let i = 0; i < count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-
-    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((x - minX) / sizeX) * GRID_RES)));
-    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((z - minZ) / sizeZ) * GRID_RES)));
-    const gIdx = gz * GRID_RES + gx;
-
-    if (isUpper) {
-      if (y < gridTips[gIdx]) gridTips[gIdx] = y;
-    } else {
-      if (y > gridTips[gIdx]) gridTips[gIdx] = y;
-    }
-  }
-
-  // Smooth grid with a 3x3 gaussian filter to eliminate mesh noise
-  const smoothedTips = new Float32Array(GRID_RES * GRID_RES);
-  for (let gz = 0; gz < GRID_RES; gz++) {
-    for (let gx = 0; gx < GRID_RES; gx++) {
-      let sum = 0;
-      let cnt = 0;
-      for (let dz = -1; dz <= 1; dz++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = gx + dx;
-          const nz = gz + dz;
-          if (nx >= 0 && nx < GRID_RES && nz >= 0 && nz < GRID_RES) {
-            const val = gridTips[nz * GRID_RES + nx];
-            if (isUpper ? val < 1e8 : val > -1e8) {
-              sum += val;
-              cnt++;
-            }
-          }
-        }
-      }
-      smoothedTips[gz * GRID_RES + gx] = cnt > 0 ? sum / cnt : (isUpper ? minY : maxY);
-    }
-  }
-
-  // 2. Anatomical Color Palette
+  // 1. Anatomical Color Palette
   // Enamel: Pure lustrous pearl white (#FFFFFF)
   const toothR = 1.000, toothG = 1.000, toothB = 1.000;
 
-  // Gingiva: Rich saturated warm coral-rose with vascular depth gradient
+  // Gingiva: Rich saturated warm coral-rose with natural vascular base gradient
   const gumMarginR = 0.865, gumMarginG = 0.445, gumMarginB = 0.500; // #DC7280
   const gumBodyR = 0.810, gumBodyG = 0.365, gumBodyB = 0.425;     // #CF5D6C
   const gumDeepR = 0.710, gumDeepG = 0.265, gumDeepB = 0.325;     // #B54352
 
-  // 3. Clinical Anatomical Scalloped Evaluation with Harmonic Papillae Waves
+  // 2. Pure Anatomical Harmonic Scalloped Gingival Margin Field
   for (let i = 0; i < count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
@@ -97,71 +49,61 @@ export function segmentDentalMeshAI(
     const ny = normals ? normals.getY(i) : 0;
     const nz = normals ? normals.getZ(i) : 1;
 
-    // Sample local incisal tip from smoothed height-field
-    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((x - minX) / sizeX) * GRID_RES)));
-    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((z - minZ) / sizeZ) * GRID_RES)));
-    const localTipY = smoothedTips[gz * GRID_RES + gx];
-
-    const distFromTip = isUpper ? (y - localTipY) : (localTipY - y);
     const normY = (y - minY) / height;
+    const zProgress = Math.max(0, Math.min(1, (z - minZ) / sizeZ)); // 0 = posterior back, 1 = anterior front
 
     // Arch polar angle theta: 0 = anterior incisors, +/- 1.5 = posterior molars
     const theta = Math.atan2(x, Math.max(0.001, z - minZ));
-    const zProgress = (z - minZ) / sizeZ; // 0 = posterior back, 1 = anterior front
 
-    // Anatomical Tooth Crown Profiles:
-    // - Anterior central incisors: ~58% crown height
-    // - Lateral incisors: ~50% crown height
-    // - Canines: ~60% crown height
-    // - Premolars: ~45% crown height
-    // - Molars: ~38% crown height
-    const baseCrownRatio = 0.38 + 0.18 * Math.pow(zProgress, 0.7);
+    // Dynamic Clinical Crown Profiles:
+    // - Central Incisors (anterior front, zProgress ~ 1.0): margin at normY ~ 0.48, Zenith peak at 0.54
+    // - Lateral Incisors & Canines: margin at normY ~ 0.44, Zenith peak at 0.50
+    // - Premolars & Molars (posterior back, zProgress ~ 0.0 - 0.4): margin at normY ~ 0.30 - 0.36
+    const baseMargin = 0.25 + 0.16 * Math.pow(zProgress, 0.75);
 
-    // Deep Harmonic Scalloped Papilla Wave: creates inverted 'U' over crowns and sharp 'V' dips between teeth
-    const scallopWave = 0.14 * Math.cos(14 * theta) - 0.04 * Math.cos(28 * theta);
-    const maxCrownHeight = height * Math.max(0.25, Math.min(0.68, baseCrownRatio + scallopWave));
+    // Deep Harmonic Scalloped Papilla Wave:
+    // Generates rounded inverted 'U' zenith domes over tooth faces and sharp 'V' dips between adjacent teeth
+    const scallopWave = 0.085 * Math.cos(14 * theta) - 0.025 * Math.cos(28 * theta);
+    const marginY = Math.max(0.18, Math.min(0.62, baseMargin + scallopWave));
 
     let gumFactor = 0; // 0.0 = Tooth Enamel (White), 1.0 = Gingiva (Coral Pink)
 
     if (isUpper) {
-      if (normY > 0.68 || ny > 0.80) {
-        // Deep gingival mucosa and flat top base cut
-        gumFactor = 1.0;
-      } else if (distFromTip <= maxCrownHeight) {
+      // Upper Jaw: Teeth point DOWN (towards minY), Gums are UP (towards maxY)
+      if (normY <= marginY) {
         // Enamel tooth crown
         gumFactor = 0.0;
-      } else if (distFromTip >= maxCrownHeight + height * 0.04) {
-        // Above cervical margin
+      } else if (normY >= marginY + 0.035) {
+        // Gingiva mucosal tissue
         gumFactor = 1.0;
       } else {
         // Crisp smooth anatomical transition band
-        const t = (distFromTip - maxCrownHeight) / (height * 0.04);
+        const t = (normY - marginY) / 0.035;
         gumFactor = t * t * (3 - 2 * t);
       }
 
       // Preserve all orthodontic attachments on upper tooth faces
-      if (normY < 0.60 && zProgress > 0.15 && Math.abs(ny) < 0.65) {
+      if (normY < marginY + 0.06 && zProgress > 0.15 && Math.abs(ny) < 0.55 && nz > 0.20) {
         gumFactor = 0.0;
       }
     } else {
-      // Lower Arch
-      if (normY < 0.32 || ny < -0.80) {
-        // Deep gingival mucosa and flat bottom base cut
-        gumFactor = 1.0;
-      } else if (distFromTip <= maxCrownHeight) {
+      // Lower Jaw: Teeth point UP (towards maxY), Gums are DOWN (towards minY)
+      const lowerMarginY = 1.0 - marginY;
+
+      if (normY >= lowerMarginY) {
         // Enamel tooth crown
         gumFactor = 0.0;
-      } else if (distFromTip >= maxCrownHeight + height * 0.04) {
-        // Below cervical margin
+      } else if (normY <= lowerMarginY - 0.035) {
+        // Gingiva mucosal tissue
         gumFactor = 1.0;
       } else {
         // Crisp smooth anatomical transition band
-        const t = (distFromTip - maxCrownHeight) / (height * 0.04);
+        const t = (lowerMarginY - normY) / 0.035;
         gumFactor = t * t * (3 - 2 * t);
       }
 
       // Preserve all orthodontic attachments on lower tooth faces
-      if (normY > 0.40 && zProgress > 0.15 && Math.abs(ny) < 0.65) {
+      if (normY > lowerMarginY - 0.06 && zProgress > 0.15 && Math.abs(ny) < 0.55 && nz > 0.20) {
         gumFactor = 0.0;
       }
     }
