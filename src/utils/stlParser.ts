@@ -237,8 +237,9 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
 }
 
 /**
- * Generates natural anatomical two-tone vertex colors (Coral-Rose Gingiva and Pearlescent Enamel Teeth)
- * with natural scalloped cervical gumline contours, matching clinical dental 3D reference renders (Image 2).
+ * Approach 3: 3D Dihedral Angle & Concave Edge Crease Segmentation Algorithm
+ * Segregates teeth from gingiva by identifying the physical 3D concave groove (cervical margin)
+ * and propagating tooth enamel labels from occlusal seeds across the triangle adjacency graph.
  */
 export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch: 'upper' | 'lower'): THREE.BufferGeometry {
   geometry.computeBoundingBox();
@@ -257,151 +258,219 @@ export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch
   const pos = geometry.attributes.position;
   const normals = geometry.attributes.normal;
   const count = pos.count;
+  const triangleCount = Math.floor(count / 3);
   const colors = new Float32Array(count * 3);
 
   const isUpper = arch === 'upper';
 
-  // 1. Build a high-resolution 2D Spatial Height-Field Grid (64 x 64) of the Occlusal Surface
-  // This finds the true local incisal edge / cusp tip for every (x, z) region along the arch
+  // 1. Calculate Triangle Face Normals & Centroids
+  const triCentroids = new Float32Array(triangleCount * 3);
+  const triNormals = new Float32Array(triangleCount * 3);
+  const triLabels = new Uint8Array(triangleCount); // 0 = unassigned/gum, 1 = tooth
+
+  for (let t = 0; t < triangleCount; t++) {
+    const i0 = t * 3;
+    const i1 = i0 + 1;
+    const i2 = i0 + 2;
+
+    const x0 = pos.getX(i0), y0 = pos.getY(i0), z0 = pos.getZ(i0);
+    const x1 = pos.getX(i1), y1 = pos.getY(i1), z1 = pos.getZ(i1);
+    const x2 = pos.getX(i2), y2 = pos.getY(i2), z2 = pos.getZ(i2);
+
+    // Centroid
+    const cx = (x0 + x1 + x2) / 3;
+    const cy = (y0 + y1 + y2) / 3;
+    const cz = (z0 + z1 + z2) / 3;
+
+    triCentroids[t * 3] = cx;
+    triCentroids[t * 3 + 1] = cy;
+    triCentroids[t * 3 + 2] = cz;
+
+    // Face Normal via cross product
+    const ax = x1 - x0, ay = y1 - y0, az = z1 - z0;
+    const bx = x2 - x0, by = y2 - y0, bz = z2 - z0;
+
+    let nx = ay * bz - az * by;
+    let ny = az * bx - ax * bz;
+    let nz = ax * by - ay * bx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+
+    nx /= len;
+    ny /= len;
+    nz /= len;
+
+    triNormals[t * 3] = nx;
+    triNormals[t * 3 + 1] = ny;
+    triNormals[t * 3 + 2] = nz;
+  }
+
+  // 2. Build Triangle Edge Adjacency via Quantized Vertex Hashing
+  // Quantize vertex coordinates to 0.05 mm precision to connect adjacent STL triangle edges
+  const edgeMap = new Map<string, number[]>();
+  const QUANT_SCALE = 20.0; // 0.05 mm resolution
+
+  const getVertexHash = (x: number, y: number, z: number) => {
+    const qx = Math.round(x * QUANT_SCALE);
+    const qy = Math.round(y * QUANT_SCALE);
+    const qz = Math.round(z * QUANT_SCALE);
+    return `${qx}_${qy}_${qz}`;
+  };
+
+  const getEdgeKey = (h1: string, h2: string) => {
+    return h1 < h2 ? `${h1}|${h2}` : `${h2}|${h1}`;
+  };
+
+  for (let t = 0; t < triangleCount; t++) {
+    const i0 = t * 3;
+    const i1 = i0 + 1;
+    const i2 = i0 + 2;
+
+    const h0 = getVertexHash(pos.getX(i0), pos.getY(i0), pos.getZ(i0));
+    const h1 = getVertexHash(pos.getX(i1), pos.getY(i1), pos.getZ(i1));
+    const h2 = getVertexHash(pos.getX(i2), pos.getY(i2), pos.getZ(i2));
+
+    const e01 = getEdgeKey(h0, h1);
+    const e12 = getEdgeKey(h1, h2);
+    const e20 = getEdgeKey(h2, h0);
+
+    let list = edgeMap.get(e01);
+    if (!list) edgeMap.set(e01, [t]);
+    else if (list.length < 2) list.push(t);
+
+    list = edgeMap.get(e12);
+    if (!list) edgeMap.set(e12, [t]);
+    else if (list.length < 2) list.push(t);
+
+    list = edgeMap.get(e20);
+    if (!list) edgeMap.set(e20, [t]);
+    else if (list.length < 2) list.push(t);
+  }
+
+  // Build triangle adjacency list
+  const triNeighbors: number[][] = Array.from({ length: triangleCount }, () => []);
+  edgeMap.forEach((tris) => {
+    if (tris.length === 2) {
+      triNeighbors[tris[0]].push(tris[1]);
+      triNeighbors[tris[1]].push(tris[0]);
+    }
+  });
+
+  // 3. Occlusal Surface Height-Field for Local Tooth Crown Depth
   const GRID_RES = 64;
   const gridTips = new Float32Array(GRID_RES * GRID_RES);
   gridTips.fill(isUpper ? 1e9 : -1e9);
 
-  for (let i = 0; i < count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
+  for (let t = 0; t < triangleCount; t++) {
+    const cx = triCentroids[t * 3];
+    const cy = triCentroids[t * 3 + 1];
+    const cz = triCentroids[t * 3 + 2];
 
-    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((x - minX) / sizeX) * GRID_RES)));
-    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((z - minZ) / sizeZ) * GRID_RES)));
+    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((cx - minX) / sizeX) * GRID_RES)));
+    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((cz - minZ) / sizeZ) * GRID_RES)));
     const gIdx = gz * GRID_RES + gx;
 
     if (isUpper) {
-      if (y < gridTips[gIdx]) gridTips[gIdx] = y;
+      if (cy < gridTips[gIdx]) gridTips[gIdx] = cy;
     } else {
-      if (y > gridTips[gIdx]) gridTips[gIdx] = y;
+      if (cy > gridTips[gIdx]) gridTips[gIdx] = cy;
     }
   }
 
-  // Smooth height-field grid to eliminate sampling gaps
-  const smoothedTips = new Float32Array(GRID_RES * GRID_RES);
-  for (let gz = 0; gz < GRID_RES; gz++) {
-    for (let gx = 0; gx < GRID_RES; gx++) {
-      let sum = 0;
-      let cnt = 0;
-      for (let dz = -1; dz <= 1; dz++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = gx + dx;
-          const nz = gz + dz;
-          if (nx >= 0 && nx < GRID_RES && nz >= 0 && nz < GRID_RES) {
-            const val = gridTips[nz * GRID_RES + nx];
-            if (isUpper ? val < 1e8 : val > -1e8) {
-              sum += val;
-              cnt++;
-            }
-          }
-        }
-      }
-      smoothedTips[gz * GRID_RES + gx] = cnt > 0 ? sum / cnt : (isUpper ? minY : maxY);
-    }
-  }
+  // 4. Seed Initialization & Geodesic Crease Flood-Fill (BFS)
+  const queue: number[] = [];
 
-  // Exact Anatomical Color Palette sampled from Reference Image 2:
-  // 1. Teeth Enamel: Pure lustrous pearl white
-  const toothR = 1.000;
-  const toothG = 1.000;
-  const toothB = 1.000;
-
-  // 2. Gingiva (Gums): Rich saturated warm coral-rose (matching Image 2)
-  const gumMarginR = 0.865; // #DC7280 (Free gingival margin)
-  const gumMarginG = 0.445;
-  const gumMarginB = 0.500;
-
-  const gumBodyR = 0.810;   // #CF5D6C (Attached gingiva body)
-  const gumBodyG = 0.365;
-  const gumBodyB = 0.425;
-
-  const gumDeepR = 0.710;   // #B54352 (Deep alveolar base cut)
-  const gumDeepG = 0.265;
-  const gumDeepB = 0.325;
-
-  for (let i = 0; i < count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-
-    // Surface normal components
-    const ny = normals ? normals.getY(i) : 0;
-    const nz = normals ? normals.getZ(i) : 1;
-
-    // Sample local incisal tip from height-field
-    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((x - minX) / sizeX) * GRID_RES)));
-    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((z - minZ) / sizeZ) * GRID_RES)));
-    const localTipY = smoothedTips[gz * GRID_RES + gx];
-
-    // Local physical distance from the true tooth tip
-    const distFromTip = isUpper ? (y - localTipY) : (localTipY - y);
-
-    // Normalized vertical height from model base to occlusal
-    const normY = (y - minY) / height;
-
-    // Arch angle theta: 0 is anterior center (incisors), +/- 1.2+ is posterior (molars)
-    const theta = Math.atan2(z, x);
-
-    // Anatomical crown height profiling per tooth:
-    // - Anterior (Incisors & Canines): crown length ~9.5 mm (~62% height)
-    // - Posterior (Premolars & Molars): crown length ~7.5 mm (~48% height)
-    const isAnterior = z > (minZ + sizeZ * 0.38);
-    const maxCrownDist = isAnterior ? (height * 0.62) : (height * 0.48);
-
-    // Surface normal adjustment at the gingival margin:
-    // Teeth faces are vertical/occlusal; gingiva curves sharply inward/upward
-    const normalOffset = isUpper ? (ny * (height * 0.08)) : (-ny * (height * 0.08));
-    const effectiveDist = distFromTip + normalOffset;
-
-    let gumFactor = 0; // 0.0 = pure tooth enamel (white), 1.0 = pure gingiva (coral-rose)
+  for (let t = 0; t < triangleCount; t++) {
+    const cy = triCentroids[t * 3 + 1];
+    const ny = triNormals[t * 3 + 1];
 
     if (isUpper) {
-      const transitionWidth = height * 0.025;
-
-      if (normY > 0.88 || ny > 0.82) {
-        // Flat model base cut is 100% gingiva
-        gumFactor = 1.0;
-      } else if (effectiveDist >= maxCrownDist + transitionWidth) {
-        gumFactor = 1.0;
-      } else if (effectiveDist <= maxCrownDist - transitionWidth) {
-        gumFactor = 0.0;
-      } else {
-        const t = (effectiveDist - (maxCrownDist - transitionWidth)) / (2 * transitionWidth);
-        gumFactor = t * t * (3 - 2 * t);
-      }
-
-      // Preserve orthodontic attachments and incisal edges
-      if (normY < 0.65 && (ny < -0.1 || nz > 0.55)) {
-        gumFactor *= 0.08;
+      // Upper Tooth Seeds: Lowest occlusal triangles
+      if (cy < minY + height * 0.28 && ny < 0.40) {
+        triLabels[t] = 1;
+        queue.push(t);
       }
     } else {
-      const transitionWidth = height * 0.025;
-
-      if (normY < 0.12 || ny < -0.82) {
-        // Flat model base cut is 100% gingiva
-        gumFactor = 1.0;
-      } else if (effectiveDist >= maxCrownDist + transitionWidth) {
-        gumFactor = 1.0;
-      } else if (effectiveDist <= maxCrownDist - transitionWidth) {
-        gumFactor = 0.0;
-      } else {
-        const t = (effectiveDist - (maxCrownDist - transitionWidth)) / (2 * transitionWidth);
-        gumFactor = t * t * (3 - 2 * t);
-      }
-
-      // Preserve orthodontic attachments on lower teeth
-      if (normY > 0.35 && (ny > 0.1 || nz > 0.55)) {
-        gumFactor *= 0.08;
+      // Lower Tooth Seeds: Highest occlusal triangles
+      if (cy > maxY - height * 0.28 && ny > -0.40) {
+        triLabels[t] = 1;
+        queue.push(t);
       }
     }
+  }
 
-    // Gingival multi-tone depth gradient (matches Image 2 shading):
+  // Fast Geodesic Propagation across convex tooth mesh, blocked by concave dihedral creases
+  let head = 0;
+  while (head < queue.length) {
+    const curr = queue[head++];
+    const cx = triCentroids[curr * 3];
+    const cy = triCentroids[curr * 3 + 1];
+    const cz = triCentroids[curr * 3 + 2];
+    const cnx = triNormals[curr * 3];
+    const cny = triNormals[curr * 3 + 1];
+    const cnz = triNormals[curr * 3 + 2];
+
+    const gx = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((cx - minX) / sizeX) * GRID_RES)));
+    const gz = Math.min(GRID_RES - 1, Math.max(0, Math.floor(((cz - minZ) / sizeZ) * GRID_RES)));
+    const localTipY = gridTips[gz * GRID_RES + gx];
+
+    const distFromTip = isUpper ? (cy - localTipY) : (localTipY - cy);
+    const isAnterior = cz > (minZ + sizeZ * 0.38);
+    const maxCrownDist = isAnterior ? (height * 0.65) : (height * 0.52);
+
+    const neighbors = triNeighbors[curr];
+    for (let j = 0; j < neighbors.length; j++) {
+      const next = neighbors[j];
+      if (triLabels[next] !== 0) continue;
+
+      const ncy = triCentroids[next * 3 + 1];
+      const nny = triNormals[next * 3 + 1];
+      const nnx = triNormals[next * 3];
+      const nnz = triNormals[next * 3 + 2];
+
+      // Base cut barrier: flat base cut is always GUM
+      if (isUpper && (ncy > maxY - height * 0.10 || nny > 0.82)) continue;
+      if (!isUpper && (ncy < minY + height * 0.10 || nny < -0.82)) continue;
+
+      // Maximum Anatomical Crown Barrier
+      const nextDist = isUpper ? (ncy - localTipY) : (localTipY - ncy);
+      if (nextDist > maxCrownDist) continue;
+
+      // 3D Dihedral Concavity Crease Detection:
+      // Vector from current triangle center to neighbor triangle center
+      const dx = triCentroids[next * 3] - cx;
+      const dy = ncy - cy;
+      const dz = triCentroids[next * 3 + 2] - cz;
+
+      // Concavity test: dot product with current face normal
+      const concavity = dx * cnx + dy * cny + dz * cnz;
+      const normalDot = cnx * nnx + cny * nny + cnz * nnz;
+
+      // If concave crevice is sharp (cervical margin sulcus) near the crown boundary, stop propagation
+      if (nextDist > (maxCrownDist * 0.65)) {
+        if (isUpper && (nny > 0.45 && cny < 0.15)) continue; // Inward gum slope
+        if (!isUpper && (nny < -0.45 && cny > -0.15)) continue; // Inward gum slope
+        if (concavity > 0.08 && normalDot < 0.70) continue; // Sharp concave groove
+      }
+
+      triLabels[next] = 1; // Mark as Tooth
+      queue.push(next);
+    }
+  }
+
+  // 5. Apply Anatomical Vertex Colors
+  // Teeth: Pure Pearlescent White (#FFFFFF)
+  const toothR = 1.000, toothG = 1.000, toothB = 1.000;
+
+  // Gingiva: Rich Saturated Warm Coral-Rose (#D86B78 / #CF5D6C with deep base #B54352)
+  const gumMarginR = 0.865, gumMarginG = 0.445, gumMarginB = 0.500;
+  const gumBodyR = 0.810, gumBodyG = 0.365, gumBodyB = 0.425;
+  const gumDeepR = 0.710, gumDeepG = 0.265, gumDeepB = 0.325;
+
+  for (let t = 0; t < triangleCount; t++) {
+    const isTooth = triLabels[t] === 1;
+    const cy = triCentroids[t * 3 + 1];
+    const normY = (cy - minY) / height;
+
     const baseDist = isUpper ? Math.max(0, normY - 0.70) / 0.30 : Math.max(0, 0.30 - normY) / 0.30;
     const neckDist = isUpper ? Math.max(0, 0.80 - normY) / 0.25 : Math.max(0, normY - 0.20) / 0.25;
 
@@ -419,15 +488,16 @@ export function applyAnatomicalDentalColors(geometry: THREE.BufferGeometry, arch
       finalGumB = gumBodyB * (1 - neckDist * 0.4) + gumMarginB * (neckDist * 0.4);
     }
 
-    // Composite Final Color: blend pure enamel white with rich coral gingiva
-    const r = toothR * (1 - gumFactor) + finalGumR * gumFactor;
-    const g = toothG * (1 - gumFactor) + finalGumG * gumFactor;
-    const b = toothB * (1 - gumFactor) + finalGumB * gumFactor;
+    const r = isTooth ? toothR : finalGumR;
+    const g = isTooth ? toothG : finalGumG;
+    const b = isTooth ? toothB : finalGumB;
 
-    const idx = i * 3;
-    colors[idx] = r;
-    colors[idx + 1] = g;
-    colors[idx + 2] = b;
+    for (let v = 0; v < 3; v++) {
+      const idx = (t * 3 + v) * 3;
+      colors[idx] = r;
+      colors[idx + 1] = g;
+      colors[idx + 2] = b;
+    }
   }
 
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
