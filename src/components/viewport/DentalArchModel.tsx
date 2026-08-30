@@ -46,27 +46,28 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
   // Load and cache Upper STL geometry
   useEffect(() => {
-    if (!selectedUpperFile?.customUrl) return;
+    const url = selectedUpperFile?.customUrl;
+    if (!url) return;
 
-    if (geometryCache.has(selectedUpperFile.customUrl)) {
-      const cached = geometryCache.get(selectedUpperFile.customUrl)!;
+    if (geometryCache.has(url)) {
+      const cached = geometryCache.get(url)!;
       setActiveUpperGeom(cached);
       selectedUpperFile.customBufferGeometry = cached;
       return;
     }
 
     if (selectedUpperFile.customBufferGeometry) {
-      geometryCache.set(selectedUpperFile.customUrl, selectedUpperFile.customBufferGeometry);
+      geometryCache.set(url, selectedUpperFile.customBufferGeometry);
       setActiveUpperGeom(selectedUpperFile.customBufferGeometry);
       return;
     }
 
     const loader = new STLLoader();
     loader.load(
-      selectedUpperFile.customUrl,
+      url,
       (geometry) => {
         const normalized = normalizeDentalGeometry(geometry, 'upper');
-        geometryCache.set(selectedUpperFile.customUrl, normalized);
+        geometryCache.set(url, normalized);
         selectedUpperFile.customBufferGeometry = normalized;
         setActiveUpperGeom(normalized);
       },
@@ -77,27 +78,28 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
   // Load and cache Lower STL geometry
   useEffect(() => {
-    if (!selectedLowerFile?.customUrl) return;
+    const url = selectedLowerFile?.customUrl;
+    if (!url) return;
 
-    if (geometryCache.has(selectedLowerFile.customUrl)) {
-      const cached = geometryCache.get(selectedLowerFile.customUrl)!;
+    if (geometryCache.has(url)) {
+      const cached = geometryCache.get(url)!;
       setActiveLowerGeom(cached);
       selectedLowerFile.customBufferGeometry = cached;
       return;
     }
 
     if (selectedLowerFile.customBufferGeometry) {
-      geometryCache.set(selectedLowerFile.customUrl, selectedLowerFile.customBufferGeometry);
+      geometryCache.set(url, selectedLowerFile.customBufferGeometry);
       setActiveLowerGeom(selectedLowerFile.customBufferGeometry);
       return;
     }
 
     const loader = new STLLoader();
     loader.load(
-      selectedLowerFile.customUrl,
+      url,
       (geometry) => {
         const normalized = normalizeDentalGeometry(geometry, 'lower');
-        geometryCache.set(selectedLowerFile.customUrl, normalized);
+        geometryCache.set(url, normalized);
         selectedLowerFile.customBufferGeometry = normalized;
         setActiveLowerGeom(normalized);
       },
