@@ -301,13 +301,13 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   }, [selectedLowerFile]);
 
   const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
-  // Natural Angle Class I Centric Occlusion:
-  // - Cusp-to-fossa molar contact: ~0.0 mm interdigitation gap across molars & premolars
-  // - Incisal relationship: Natural 1.5 mm overjet and 1.0 mm overbite
-  // - Posterior alignment: Aligns upper and lower second molars (#17/#27 and #37/#47)
-  const upperPosY = isBothVisible ? (upperBBoxHeight * 0.438) : 0;
-  const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.516) : 0;
-  const lowerPosZ = isBothVisible ? -0.8 : 0;
+  // Natural Angle Class I Closed Centric Occlusion:
+  // - Zero-gap molar & premolar interdigitation
+  // - Natural 1.6 mm anterior overjet and 2.5 mm overbite
+  // - Perfectly closed aesthetic bite
+  const upperPosY = isBothVisible ? (upperBBoxHeight * 0.352) : 0;
+  const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.395) : 0;
+  const lowerPosZ = isBothVisible ? -0.5 : 0;
 
   return (
     <group ref={groupRef} onPointerDown={handlePointerDown}>
