@@ -7,6 +7,7 @@ import { OrbitControls, ContactShadows, Line, MeshReflectorMaterial } from '@rea
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { DentalArchModel } from './DentalArchModel';
+import { ToothHoverTooltip } from './ToothHoverTooltip';
 
 // Camera controller with smooth tweening
 const CameraController: React.FC = () => {
@@ -303,6 +304,9 @@ export const DentalCanvas: React.FC = () => {
           <ScreenshotWorker />
         </Canvas>
       )}
+
+      {/* Floating FDI Tooth Identification Tooltip */}
+      <ToothHoverTooltip />
     </div>
   );
 };

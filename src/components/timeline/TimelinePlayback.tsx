@@ -1,15 +1,19 @@
-'use client';
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { 
   Play, 
   Pause, 
   SkipBack, 
   SkipForward, 
   Gauge, 
-  Repeat 
+  Repeat,
+  ShieldCheck,
+  AlertTriangle,
+  Info,
+  ChevronUp,
+  X
 } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
+import { computeStageSafetyMetrics } from '@/utils/movementAnalytics';
 
 export const TimelinePlayback: React.FC = () => {
   const {
@@ -24,7 +28,14 @@ export const TimelinePlayback: React.FC = () => {
     setPlaybackSpeed,
     isLooping,
     toggleLoop,
+    isSafetyPopoverOpen,
+    toggleSafetyPopover,
+    setSafetyPopoverOpen,
   } = useViewerStore();
+
+  const safetyMetrics = useMemo(() => {
+    return computeStageSafetyMetrics(currentStep, totalSteps);
+  }, [currentStep, totalSteps]);
 
   // Automated playback animation interval timer
   useEffect(() => {
@@ -41,7 +52,7 @@ export const TimelinePlayback: React.FC = () => {
   }, [isPlaying, playbackSpeed, nextStep]);
 
   return (
-    <div className="h-auto sm:h-20 bg-white px-3 sm:px-6 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between select-none z-20 shrink-0 gap-3 sm:gap-6 overflow-x-auto">
+    <div className="relative h-auto sm:h-20 bg-white px-3 sm:px-6 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between select-none z-20 shrink-0 gap-3 sm:gap-6 overflow-x-auto">
       {/* 1. Playback Section */}
       <div className="flex flex-col gap-0.5 sm:gap-1 shrink-0 min-w-[110px] sm:min-w-[130px]">
         <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
@@ -90,11 +101,33 @@ export const TimelinePlayback: React.FC = () => {
       {/* 2. File Sequence Slider Section */}
       <div className="flex-1 order-3 sm:order-none flex flex-col gap-1 sm:gap-2 min-w-[180px] w-full sm:w-auto">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
-            File Sequence
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
+              File Sequence
+            </span>
+            {/* Clinical Movement Velocity Badge */}
+            <button
+              onClick={toggleSafetyPopover}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
+                safetyMetrics.status === 'optimal'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : safetyMetrics.status === 'moderate'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+              }`}
+              title="Click to view clinical stage velocity telemetry"
+            >
+              {safetyMetrics.status === 'optimal' ? (
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-amber-600" />
+              )}
+              <span>{safetyMetrics.maxTranslationMm} mm / {safetyMetrics.maxRotationDeg}°</span>
+              <Info className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+            </button>
+          </div>
           <span className="text-[11px] sm:text-xs font-semibold text-slate-600 tabular-nums">
-            {currentStep} <span className="text-slate-400 font-normal">/ {totalSteps}</span>
+            Stage {currentStep} <span className="text-slate-400 font-normal">/ {totalSteps}</span>
           </span>
         </div>
 
@@ -109,7 +142,7 @@ export const TimelinePlayback: React.FC = () => {
             />
           </div>
 
-          {/* Discrete Stage Tick Dots (shown cleanly without crowding) */}
+          {/* Discrete Stage Tick Dots */}
           <div className="absolute inset-x-0 flex justify-between pointer-events-none px-1">
             {totalSteps <= 16 ? (
               Array.from({ length: totalSteps }).map((_, i) => {
@@ -124,7 +157,6 @@ export const TimelinePlayback: React.FC = () => {
                 );
               })
             ) : (
-              // When steps > 16, show strategic interval ticks (every 5 steps + first & last)
               Array.from({ length: totalSteps }).map((_, i) => {
                 const stepNum = i + 1;
                 const isMajor = stepNum === 1 || stepNum === totalSteps || stepNum % 5 === 0;
@@ -217,7 +249,6 @@ export const TimelinePlayback: React.FC = () => {
         </span>
         <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
           <Repeat className={`w-3.5 sm:w-4 h-3.5 sm:h-4 transition-colors ${isLooping ? 'text-blue-600' : 'text-slate-500'}`} />
-          {/* iOS style Toggle Switch */}
           <button
             id="btn-toggle-loop"
             onClick={toggleLoop}
@@ -233,6 +264,50 @@ export const TimelinePlayback: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Detailed Clinical Safety Popover Modal */}
+      {isSafetyPopoverOpen && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[340px] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-4 shadow-2xl border border-slate-750 z-50 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                Stage {currentStep} Clinical Telemetry
+              </h4>
+            </div>
+            <button
+              onClick={() => setSafetyPopoverOpen(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2.5 text-xs">
+            <div className="grid grid-cols-2 gap-2 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
+              <div>
+                <span className="text-[10px] text-slate-400 block">Max Translation</span>
+                <span className="font-bold text-emerald-400 text-sm">{safetyMetrics.maxTranslationMm} mm</span>
+                <span className="text-[9px] text-slate-500 block">Limit: ≤ 0.25 mm</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">Max Rotation</span>
+                <span className="font-bold text-emerald-400 text-sm">{safetyMetrics.maxRotationDeg}°</span>
+                <span className="text-[9px] text-slate-500 block">Limit: ≤ 2.0°</span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center px-1">
+              <span className="text-slate-400">Primary Active Tooth:</span>
+              <span className="font-semibold text-blue-300">{safetyMetrics.limitingTooth}</span>
+            </div>
+
+            <div className="p-2 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-200 leading-relaxed">
+              💡 {safetyMetrics.statusMessage}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

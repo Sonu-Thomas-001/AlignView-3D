@@ -81,6 +81,15 @@ interface ViewerState {
   patientName: string;
   setPatientName: (name: string) => void;
 
+  // FDI Tooth Hover & Identification
+  hoveredTooth: { fdi: number; name: string; shortName: string; quadrant: string; arch: 'upper' | 'lower'; screenX: number; screenY: number } | null;
+  setHoveredTooth: (tooth: { fdi: number; name: string; shortName: string; quadrant: string; arch: 'upper' | 'lower'; screenX: number; screenY: number } | null) => void;
+
+  // Clinical Safety Popover
+  isSafetyPopoverOpen: boolean;
+  setSafetyPopoverOpen: (open: boolean) => void;
+  toggleSafetyPopover: () => void;
+
   // Upload modal
   isUploadModalOpen: boolean;
   uploadArchTarget: 'upper' | 'lower' | 'auto';
@@ -137,6 +146,13 @@ interface ViewerState {
 export const useViewerStore = create<ViewerState>((set, get) => ({
   patientName: 'Krishnapriya',
   setPatientName: (name) => set({ patientName: name }),
+
+  hoveredTooth: null,
+  setHoveredTooth: (tooth) => set({ hoveredTooth: tooth }),
+
+  isSafetyPopoverOpen: false,
+  setSafetyPopoverOpen: (open) => set({ isSafetyPopoverOpen: open }),
+  toggleSafetyPopover: () => set((s) => ({ isSafetyPopoverOpen: !s.isSafetyPopoverOpen })),
 
   upperFiles: INITIAL_UPPER_FILES,
   lowerFiles: INITIAL_LOWER_FILES,

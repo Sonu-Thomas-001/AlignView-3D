@@ -1,11 +1,10 @@
-'use client';
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
 import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { normalizeDentalGeometry } from '@/utils/stlParser';
+import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 import { UPPER_TEETH, LOWER_TEETH, createToothGeometry, getToothTransform, createGingivaGeometry } from './DentalGeometryGenerator';
 
 interface DentalArchModelProps {
@@ -31,6 +30,8 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     lowerFiles,
     selectedUpperId,
     selectedLowerId,
+    setHoveredTooth,
+    isPlaying,
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
@@ -39,6 +40,24 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   // Check if active file has custom uploaded geometry
   const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId), [upperFiles, selectedUpperId]);
   const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId), [lowerFiles, selectedLowerId]);
+
+  // Handle FDI Tooth Hover Tooltip
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
+    if (activeTool === 'measure') return;
+    e.stopPropagation();
+    if (e.point) {
+      const tooth = getFDIToothFromPoint(e.point, arch);
+      setHoveredTooth({
+        ...tooth,
+        screenX: e.clientX,
+        screenY: e.clientY,
+      });
+    }
+  };
+
+  const handlePointerOut = () => {
+    setHoveredTooth(null);
+  };
 
   // Dynamic async loader for real STL files from STL folder
   useEffect(() => {
@@ -274,7 +293,12 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     <group ref={groupRef} onPointerDown={handlePointerDown}>
       {/* UPPER ARCH */}
       {showUpper && (
-        <group name="UpperArch" position={[0, upperPosY, 0]}>
+        <group
+          name="UpperArch"
+          position={[0, upperPosY, 0]}
+          onPointerMove={(e) => handlePointerMove(e, 'upper')}
+          onPointerOut={handlePointerOut}
+        >
           {selectedUpperFile?.customBufferGeometry ? (
             <mesh
               geometry={selectedUpperFile.customBufferGeometry}
@@ -313,7 +337,12 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
       {/* LOWER ARCH */}
       {showLower && (
-        <group name="LowerArch" position={[0, lowerPosY, 0]}>
+        <group
+          name="LowerArch"
+          position={[0, lowerPosY, 0]}
+          onPointerMove={(e) => handlePointerMove(e, 'lower')}
+          onPointerOut={handlePointerOut}
+        >
           {selectedLowerFile?.customBufferGeometry ? (
             <mesh
               geometry={selectedLowerFile.customBufferGeometry}
