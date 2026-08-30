@@ -46,19 +46,25 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
   // Load and cache Upper STL geometry
   useEffect(() => {
-    const url = selectedUpperFile?.customUrl;
+    if (!selectedUpperFile) {
+      setActiveUpperGeom(null);
+      return;
+    }
+
+    // 1. If buffer geometry was already parsed in memory from file upload
+    if (selectedUpperFile.customBufferGeometry) {
+      setActiveUpperGeom(selectedUpperFile.customBufferGeometry);
+      return;
+    }
+
+    // 2. Otherwise load via customUrl if present
+    const url = selectedUpperFile.customUrl;
     if (!url) return;
 
     if (geometryCache.has(url)) {
       const cached = geometryCache.get(url)!;
       setActiveUpperGeom(cached);
       selectedUpperFile.customBufferGeometry = cached;
-      return;
-    }
-
-    if (selectedUpperFile.customBufferGeometry) {
-      geometryCache.set(url, selectedUpperFile.customBufferGeometry);
-      setActiveUpperGeom(selectedUpperFile.customBufferGeometry);
       return;
     }
 
@@ -74,23 +80,29 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       undefined,
       (err) => console.warn('Error loading Upper STL:', err)
     );
-  }, [selectedUpperFile?.customUrl, selectedUpperFile]);
+  }, [selectedUpperFile, selectedUpperFile?.customBufferGeometry]);
 
   // Load and cache Lower STL geometry
   useEffect(() => {
-    const url = selectedLowerFile?.customUrl;
+    if (!selectedLowerFile) {
+      setActiveLowerGeom(null);
+      return;
+    }
+
+    // 1. If buffer geometry was already parsed in memory from file upload
+    if (selectedLowerFile.customBufferGeometry) {
+      setActiveLowerGeom(selectedLowerFile.customBufferGeometry);
+      return;
+    }
+
+    // 2. Otherwise load via customUrl if present
+    const url = selectedLowerFile.customUrl;
     if (!url) return;
 
     if (geometryCache.has(url)) {
       const cached = geometryCache.get(url)!;
       setActiveLowerGeom(cached);
       selectedLowerFile.customBufferGeometry = cached;
-      return;
-    }
-
-    if (selectedLowerFile.customBufferGeometry) {
-      geometryCache.set(url, selectedLowerFile.customBufferGeometry);
-      setActiveLowerGeom(selectedLowerFile.customBufferGeometry);
       return;
     }
 
@@ -106,7 +118,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       undefined,
       (err) => console.warn('Error loading Lower STL:', err)
     );
-  }, [selectedLowerFile?.customUrl, selectedLowerFile]);
+  }, [selectedLowerFile, selectedLowerFile?.customBufferGeometry]);
 
   // Handle FDI Tooth Hover Tooltip via 3D spatial dental mapping
   const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
