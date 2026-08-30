@@ -28,11 +28,16 @@ const TOOLS: ToolItem[] = [
 ];
 
 export const FloatingToolPalette: React.FC = () => {
-  const { activeTool, setActiveTool } = useViewerStore();
+  const { activeTool, setActiveTool, studioTheme } = useViewerStore();
+  const isDark = studioTheme === 'dark';
 
   return (
     <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 select-none">
-      <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-floating border border-slate-200/80 p-1 flex flex-col gap-0.5 sm:gap-1 w-12 sm:w-16 items-center">
+      <div className={`backdrop-blur-md rounded-xl sm:rounded-2xl shadow-floating border p-1 flex flex-col gap-0.5 sm:gap-1 w-12 sm:w-16 items-center transition-colors ${
+        isDark
+          ? 'bg-slate-900/90 border-slate-700/80 text-white'
+          : 'bg-white/95 border-slate-200/80 text-slate-800'
+      }`}>
         {TOOLS.map((tool) => {
           const isActive = activeTool === tool.id;
           return (
@@ -43,6 +48,8 @@ export const FloatingToolPalette: React.FC = () => {
               className={`w-full py-1.5 sm:py-2 px-1 rounded-lg sm:rounded-xl flex flex-col items-center justify-center transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm font-medium'
+                  : isDark
+                  ? 'text-slate-300 hover:bg-slate-800 hover:text-white font-normal'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-normal'
               }`}
               title={tool.label}

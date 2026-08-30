@@ -38,11 +38,16 @@ const MODES: ModeOption[] = [
 ];
 
 export const ViewModePill: React.FC = () => {
-  const { viewMode, setViewMode } = useViewerStore();
+  const { viewMode, setViewMode, studioTheme } = useViewerStore();
+  const isDark = studioTheme === 'dark';
 
   return (
     <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 select-none max-w-[calc(100%-110px)] sm:max-w-none">
-      <div className="bg-white/95 backdrop-blur-md rounded-full shadow-floating border border-slate-200/80 p-0.5 sm:p-1 flex items-center gap-0.5 sm:gap-1">
+      <div className={`backdrop-blur-md rounded-full shadow-floating border p-0.5 sm:p-1 flex items-center gap-0.5 sm:gap-1 transition-colors ${
+        isDark
+          ? 'bg-slate-900/90 border-slate-700/80 text-white'
+          : 'bg-white/95 border-slate-200/80 text-slate-800'
+      }`}>
         {MODES.map((mode) => {
           const isActive = viewMode === mode.id;
           return (
@@ -53,6 +58,8 @@ export const ViewModePill: React.FC = () => {
               className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium transition-all shrink-0 ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm'
+                  : isDark
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
               title={mode.label}
