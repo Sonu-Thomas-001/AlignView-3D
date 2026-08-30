@@ -3,10 +3,10 @@ import * as THREE from 'three';
 /**
  * AI-Enhanced Anatomical Scalloped Gingival Margin Segmentation Engine
  * 
- * - Full Anterior Crown Height Preservation: Ensures central incisors, lateral incisors, and canines are 100% pure white
- * - Natural Scalloped Interdental Papillae: Plunges warm coral-rose gingiva between adjacent teeth
- * - 100% Pure Pearlescent White on all composite attachments and brackets
- * - Smooth multi-tone vascular depth shading on gingival base
+ * - Full Crown Preservation: Upper crowns extend up to normY = 0.54, Lower crowns down to normY = 0.46
+ * - Natural Scalloped Gingival Margins: Inverted 'U' zeniths over tooth crowns and interdental papillae dips
+ * - 100% Pure Pearlescent White on all tooth crowns, incisal edges, and composite attachments
+ * - Rich Coral-Rose Gingiva on mucosal base
  */
 export function segmentDentalMeshAI(
   geometry: THREE.BufferGeometry,
@@ -56,14 +56,11 @@ export function segmentDentalMeshAI(
     const theta = Math.atan2(x, Math.max(0.001, z - minZ));
 
     // Dynamic Clinical Margin Heights:
-    // Upper Arch: Crown height extends to normY = 0.51 on central incisors, 0.40 on molars
-    // Lower Arch: Crown height extends down to normY = 0.49 on central incisors, 0.60 on molars
-    const baseMargin = isUpper
-      ? (0.38 + 0.12 * Math.pow(zProgress, 0.75))
-      : (0.36 + 0.10 * Math.pow(zProgress, 0.75));
-
+    // Upper Arch: Crown height extends up to normY = 0.54 on central incisors, 0.42 on molars
+    // Lower Arch: Crown height extends down to normY = 0.46 on central incisors, 0.58 on molars
+    const baseMargin = 0.42 + 0.12 * Math.pow(zProgress, 0.75);
     const scallopWave = 0.035 * Math.cos(14 * theta) - 0.012 * Math.cos(28 * theta);
-    const marginY = Math.max(0.28, Math.min(0.56, baseMargin + scallopWave));
+    const marginY = Math.max(0.36, Math.min(0.60, baseMargin + scallopWave));
 
     let gumFactor = 0; // 0.0 = Tooth Enamel (White), 1.0 = Gingiva (Coral Pink)
 
