@@ -5,6 +5,7 @@ import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { normalizeDentalGeometry } from '@/utils/stlParser';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
+import { segmentDentalMeshAI } from '@/utils/aiDentalSegmenter';
 import { UPPER_TEETH, LOWER_TEETH, createToothGeometry, getToothTransform, createGingivaGeometry } from './DentalGeometryGenerator';
 
 interface DentalArchModelProps {
@@ -40,6 +41,17 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   // Check if active file has custom uploaded geometry
   const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId), [upperFiles, selectedUpperId]);
   const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId), [lowerFiles, selectedLowerId]);
+
+  // Dynamically apply AI scalloped segmentation & white attachment coloring
+  const upperRenderGeom = useMemo(() => {
+    if (!selectedUpperFile?.customBufferGeometry) return null;
+    return segmentDentalMeshAI(selectedUpperFile.customBufferGeometry, 'upper');
+  }, [selectedUpperFile?.customBufferGeometry]);
+
+  const lowerRenderGeom = useMemo(() => {
+    if (!selectedLowerFile?.customBufferGeometry) return null;
+    return segmentDentalMeshAI(selectedLowerFile.customBufferGeometry, 'lower');
+  }, [selectedLowerFile?.customBufferGeometry]);
 
   // Handle FDI Tooth Hover Tooltip
   const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
@@ -319,9 +331,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
           onPointerMove={(e) => handlePointerMove(e, 'upper')}
           onPointerOut={handlePointerOut}
         >
-          {selectedUpperFile?.customBufferGeometry ? (
+          {upperRenderGeom ? (
             <mesh
-              geometry={selectedUpperFile.customBufferGeometry}
+              geometry={upperRenderGeom}
               material={upperCustomMaterial}
               castShadow
               receiveShadow
@@ -363,9 +375,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
           onPointerMove={(e) => handlePointerMove(e, 'lower')}
           onPointerOut={handlePointerOut}
         >
-          {selectedLowerFile?.customBufferGeometry ? (
+          {lowerRenderGeom ? (
             <mesh
-              geometry={selectedLowerFile.customBufferGeometry}
+              geometry={lowerRenderGeom}
               material={lowerCustomMaterial}
               castShadow
               receiveShadow
