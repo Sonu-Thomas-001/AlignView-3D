@@ -301,10 +301,13 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   }, [selectedLowerFile]);
 
   const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
-  // Natural clinical centric occlusion:
-  // Upper incisal edges overlap lower incisors by ~1.8 mm (Overbite) with posterior cusps in solid contact
-  const upperPosY = isBothVisible ? (upperBBoxHeight * 0.36) : 0;
-  const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.36) : 0;
+  // Natural Angle Class I Centric Occlusion:
+  // - Cusp-to-fossa molar contact: ~0.0 mm interdigitation gap across molars & premolars
+  // - Incisal relationship: Natural 1.5 mm overjet and 1.0 mm overbite
+  // - Posterior alignment: Aligns upper and lower second molars (#17/#27 and #37/#47)
+  const upperPosY = isBothVisible ? (upperBBoxHeight * 0.438) : 0;
+  const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.516) : 0;
+  const lowerPosZ = isBothVisible ? -0.8 : 0;
 
   return (
     <group ref={groupRef} onPointerDown={handlePointerDown}>
@@ -356,7 +359,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       {showLower && (
         <group
           name="LowerArch"
-          position={[0, lowerPosY, 0]}
+          position={[0, lowerPosY, lowerPosZ]}
           onPointerMove={(e) => handlePointerMove(e, 'lower')}
           onPointerOut={handlePointerOut}
         >
