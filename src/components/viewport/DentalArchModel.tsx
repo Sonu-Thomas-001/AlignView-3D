@@ -5,7 +5,8 @@ import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { normalizeDentalGeometry } from '@/utils/stlParser';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
-import { segmentDentalMeshAI } from '@/utils/aiDentalSegmenter';
+import { segmentDentalMeshAI, applyAISegmentationLabels, fetchMeshSegNetSegmentation } from '@/utils/aiDentalSegmenter';
+import { getFDIToothByID } from '@/utils/fdiToothMap';
 import { UPPER_TEETH, LOWER_TEETH, createToothGeometry, getToothTransform, createGingivaGeometry } from './DentalGeometryGenerator';
 
 interface DentalArchModelProps {
@@ -36,29 +37,84 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
+  const [upperSegmentation, setUpperSegmentation] = useState<number[] | null>(null);
+  const [lowerSegmentation, setLowerSegmentation] = useState<number[] | null>(null);
   const [, setReloadCounter] = useState(0);
 
   // Check if active file has custom uploaded geometry
   const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId), [upperFiles, selectedUpperId]);
   const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId), [lowerFiles, selectedLowerId]);
 
+  // Request MeshSegNet deep segmentation when upper arch changes
+  useEffect(() => {
+    let cancelled = false;
+    if (selectedUpperFile?.name) {
+      fetchMeshSegNetSegmentation(selectedUpperFile.name, 'upper').then(res => {
+        if (!cancelled && res?.fdiLabels) {
+          setUpperSegmentation(res.fdiLabels);
+        }
+      });
+    }
+    return () => { cancelled = true; };
+  }, [selectedUpperFile?.name, selectedUpperId]);
+
+  // Request MeshSegNet deep segmentation when lower arch changes
+  useEffect(() => {
+    let cancelled = false;
+    if (selectedLowerFile?.name) {
+      fetchMeshSegNetSegmentation(selectedLowerFile.name, 'lower').then(res => {
+        if (!cancelled && res?.fdiLabels) {
+          setLowerSegmentation(res.fdiLabels);
+        }
+      });
+    }
+    return () => { cancelled = true; };
+  }, [selectedLowerFile?.name, selectedLowerId]);
+
   // Dynamically apply AI scalloped segmentation & white attachment coloring
   const upperRenderGeom = useMemo(() => {
     if (!selectedUpperFile?.customBufferGeometry) return null;
     const cloned = selectedUpperFile.customBufferGeometry.clone();
+    if (upperSegmentation) {
+      return applyAISegmentationLabels(cloned, upperSegmentation, 'upper');
+    }
     return segmentDentalMeshAI(cloned, 'upper');
-  }, [selectedUpperFile?.customBufferGeometry]);
+  }, [selectedUpperFile?.customBufferGeometry, upperSegmentation]);
 
   const lowerRenderGeom = useMemo(() => {
     if (!selectedLowerFile?.customBufferGeometry) return null;
     const cloned = selectedLowerFile.customBufferGeometry.clone();
+    if (lowerSegmentation) {
+      return applyAISegmentationLabels(cloned, lowerSegmentation, 'lower');
+    }
     return segmentDentalMeshAI(cloned, 'lower');
-  }, [selectedLowerFile?.customBufferGeometry]);
+  }, [selectedLowerFile?.customBufferGeometry, lowerSegmentation]);
 
   // Handle FDI Tooth Hover Tooltip
   const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
     if (activeTool === 'measure') return;
     e.stopPropagation();
+
+    // 1. Check direct per-triangle MeshSegNet classification
+    const targetGeom = arch === 'upper' ? upperRenderGeom : lowerRenderGeom;
+    const fdiLabels = targetGeom?.userData?.fdiLabels;
+
+    if (fdiLabels && e.faceIndex !== undefined && e.faceIndex !== null) {
+      const fdi = fdiLabels[e.faceIndex];
+      if (fdi > 0) {
+        const tooth = getFDIToothByID(fdi);
+        if (tooth) {
+          setHoveredTooth({
+            ...tooth,
+            screenX: e.clientX,
+            screenY: e.clientY,
+          });
+          return;
+        }
+      }
+    }
+
+    // 2. Spatial geometric fallback
     if (e.point) {
       const tooth = getFDIToothFromPoint(e.point, arch);
       setHoveredTooth({
@@ -255,19 +311,25 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     });
 
     // Custom Upper Arch (Realistic Anatomical Colors matching reference image)
-    const upperCustom = new THREE.MeshStandardMaterial({
+    const upperCustom = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
-      roughness: 0.26,
-      metalness: 0.0,
+      roughness: 0.20,
+      metalness: 0.01,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.1,
+      reflectivity: 0.8,
       clippingPlanes: clippingPlanesArray,
       clipShadows: true,
     });
 
     // Custom Lower Arch (Realistic Anatomical Colors matching reference image)
-    const lowerCustom = new THREE.MeshStandardMaterial({
+    const lowerCustom = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
-      roughness: 0.26,
-      metalness: 0.0,
+      roughness: 0.20,
+      metalness: 0.01,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.1,
+      reflectivity: 0.8,
       clippingPlanes: clippingPlanesArray,
       clipShadows: true,
     });

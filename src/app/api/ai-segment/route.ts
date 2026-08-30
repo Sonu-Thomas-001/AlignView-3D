@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const res = await fetch(`${AI_WORKER_URL}/health`, {
       method: 'GET',
-      signal: AbortSignal.timeout(1200),
+      signal: AbortSignal.timeout(2000),
     });
     if (res.ok) {
       const data = await res.json();
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No STL file provided' }, { status: 400 });
     }
 
-    // Attempt to forward to local Python AI worker
+    // Forward to local MeshSegNet Python AI microservice
     try {
       const aiFormData = new FormData();
       const blob = new Blob([fileBuffer as unknown as BlobPart], { type: 'application/octet-stream' });
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       const aiResponse = await fetch(`${AI_WORKER_URL}/segment?arch=${arch}`, {
         method: 'POST',
         body: aiFormData,
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(25000),
       });
 
       if (aiResponse.ok) {
@@ -80,3 +80,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+

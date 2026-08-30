@@ -1,175 +1,362 @@
 """
-MeshSegNet: 3D Deep Graph Convolutional Network for Dental Intraoral Scan Segmentation
-Extracts 15-D geometric descriptors (Curvature, Normals, Shape Index, Topological Graph)
-and predicts per-triangle FDI tooth classes (11-48) and gingival mucosa (0).
+MeshSegNet: Deep Multi-Scale Mesh Feature Learning for Automated Labeling of Raw Dental Surfaces
+Official implementation matching Tai-Hsien/MeshSegNet (MICCAI / IEEE TMI) and s-triar/tooth-segmentation-meshsegnet.
 """
 
+import os
+import sys
+import time
 import numpy as np
 import trimesh
-from typing import Dict, Any, Tuple
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+from scipy.spatial.distance import cdist
+from sklearn.neighbors import KNeighborsClassifier
+from typing import Dict, Any, Tuple, Optional, List
 
+
+# ---------------------------------------------------------------------------
+# 1. Official MeshSegNet PyTorch Architecture
+# ---------------------------------------------------------------------------
+
+class STN3d(nn.Module):
+    def __init__(self, channel=15):
+        super(STN3d, self).__init__()
+        self.conv1 = torch.nn.Conv1d(channel, 64, 1)
+        self.conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.conv3 = torch.nn.Conv1d(128, 1024, 1)
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 9)
+        self.relu = nn.ReLU()
+
+        self.bn1 = nn.BatchNorm1d(64)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.bn3 = nn.BatchNorm1d(1024)
+        self.bn4 = nn.BatchNorm1d(512)
+        self.bn5 = nn.BatchNorm1d(256)
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = torch.max(x, 2, keepdim=True)[0]
+        x = x.view(-1, 1024)
+
+        x = F.relu(self.bn4(self.fc1(x)))
+        x = F.relu(self.bn5(self.fc2(x)))
+        x = self.fc3(x)
+
+        iden = Variable(torch.from_numpy(np.array([1, 0, 0, 0, 1, 0, 0, 0, 1], dtype=np.float32))).view(1, 9).repeat(
+            batchsize, 1
+        )
+        if x.is_cuda:
+            iden = iden.to(x.get_device())
+        x = x + iden
+        x = x.view(-1, 3, 3)
+        return x
+
+
+class STNkd(nn.Module):
+    def __init__(self, k=64):
+        super(STNkd, self).__init__()
+        self.conv1 = torch.nn.Conv1d(k, 64, 1)
+        self.conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.conv3 = torch.nn.Conv1d(128, 512, 1)
+        self.fc1 = nn.Linear(512, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, k * k)
+        self.relu = nn.ReLU()
+
+        self.bn1 = nn.BatchNorm1d(64)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.bn3 = nn.BatchNorm1d(512)
+        self.bn4 = nn.BatchNorm1d(256)
+        self.bn5 = nn.BatchNorm1d(128)
+
+        self.k = k
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = torch.max(x, 2, keepdim=True)[0]
+        x = x.view(-1, 512)
+
+        x = F.relu(self.bn4(self.fc1(x)))
+        x = F.relu(self.bn5(self.fc2(x)))
+        x = self.fc3(x)
+
+        iden = Variable(torch.from_numpy(np.eye(self.k, dtype=np.float32).flatten())).view(1, self.k * self.k).repeat(
+            batchsize, 1
+        )
+        if x.is_cuda:
+            iden = iden.to(x.get_device())
+        x = x + iden
+        x = x.view(-1, self.k, self.k)
+        return x
+
+
+class MeshSegNet(nn.Module):
+    def __init__(self, num_classes=15, num_channels=15, with_dropout=True, dropout_p=0.5):
+        super(MeshSegNet, self).__init__()
+        self.num_classes = num_classes
+        self.num_channels = num_channels
+        self.with_dropout = with_dropout
+        self.dropout_p = dropout_p
+
+        # MLP-1 [64, 64]
+        self.mlp1_conv1 = torch.nn.Conv1d(self.num_channels, 64, 1)
+        self.mlp1_conv2 = torch.nn.Conv1d(64, 64, 1)
+        self.mlp1_bn1 = nn.BatchNorm1d(64)
+        self.mlp1_bn2 = nn.BatchNorm1d(64)
+        # FTM (feature-transformer module)
+        self.fstn = STNkd(k=64)
+        # GLM-1 (graph-constrained learning modulus)
+        self.glm1_conv1_1 = torch.nn.Conv1d(64, 32, 1)
+        self.glm1_conv1_2 = torch.nn.Conv1d(64, 32, 1)
+        self.glm1_bn1_1 = nn.BatchNorm1d(32)
+        self.glm1_bn1_2 = nn.BatchNorm1d(32)
+        self.glm1_conv2 = torch.nn.Conv1d(32 + 32, 64, 1)
+        self.glm1_bn2 = nn.BatchNorm1d(64)
+        # MLP-2
+        self.mlp2_conv1 = torch.nn.Conv1d(64, 64, 1)
+        self.mlp2_bn1 = nn.BatchNorm1d(64)
+        self.mlp2_conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.mlp2_bn2 = nn.BatchNorm1d(128)
+        self.mlp2_conv3 = torch.nn.Conv1d(128, 512, 1)
+        self.mlp2_bn3 = nn.BatchNorm1d(512)
+        # GLM-2 (graph-constrained learning modulus)
+        self.glm2_conv1_1 = torch.nn.Conv1d(512, 128, 1)
+        self.glm2_conv1_2 = torch.nn.Conv1d(512, 128, 1)
+        self.glm2_conv1_3 = torch.nn.Conv1d(512, 128, 1)
+        self.glm2_bn1_1 = nn.BatchNorm1d(128)
+        self.glm2_bn1_2 = nn.BatchNorm1d(128)
+        self.glm2_bn1_3 = nn.BatchNorm1d(128)
+        self.glm2_conv2 = torch.nn.Conv1d(128 * 3, 512, 1)
+        self.glm2_bn2 = nn.BatchNorm1d(512)
+        # MLP-3
+        self.mlp3_conv1 = torch.nn.Conv1d(64 + 512 + 512 + 512, 256, 1)
+        self.mlp3_conv2 = torch.nn.Conv1d(256, 256, 1)
+        self.mlp3_bn1_1 = nn.BatchNorm1d(256)
+        self.mlp3_bn1_2 = nn.BatchNorm1d(256)
+        self.mlp3_conv3 = torch.nn.Conv1d(256, 128, 1)
+        self.mlp3_conv4 = torch.nn.Conv1d(128, 128, 1)
+        self.mlp3_bn2_1 = nn.BatchNorm1d(128)
+        self.mlp3_bn2_2 = nn.BatchNorm1d(128)
+        # output
+        self.output_conv = torch.nn.Conv1d(128, self.num_classes, 1)
+        if self.with_dropout:
+            self.dropout = nn.Dropout(p=self.dropout_p)
+
+    def forward(self, x, a_s, a_l):
+        batchsize = x.size()[0]
+        n_pts = x.size()[2]
+        # MLP-1
+        x = F.relu(self.mlp1_bn1(self.mlp1_conv1(x)))
+        x = F.relu(self.mlp1_bn2(self.mlp1_conv2(x)))
+        # FTM
+        trans_feat = self.fstn(x)
+        x = x.transpose(2, 1)
+        x_ftm = torch.bmm(x, trans_feat)
+        # GLM-1
+        sap = torch.bmm(a_s, x_ftm)
+        sap = sap.transpose(2, 1)
+        x_ftm = x_ftm.transpose(2, 1)
+        x = F.relu(self.glm1_bn1_1(self.glm1_conv1_1(x_ftm)))
+        glm_1_sap = F.relu(self.glm1_bn1_2(self.glm1_conv1_2(sap)))
+        x = torch.cat([x, glm_1_sap], dim=1)
+        x = F.relu(self.glm1_bn2(self.glm1_conv2(x)))
+        # MLP-2
+        x = F.relu(self.mlp2_bn1(self.mlp2_conv1(x)))
+        x = F.relu(self.mlp2_bn2(self.mlp2_conv2(x)))
+        x_mlp2 = F.relu(self.mlp2_bn3(self.mlp2_conv3(x)))
+        if self.with_dropout:
+            x_mlp2 = self.dropout(x_mlp2)
+        # GLM-2
+        x_mlp2 = x_mlp2.transpose(2, 1)
+        sap_1 = torch.bmm(a_s, x_mlp2)
+        sap_2 = torch.bmm(a_l, x_mlp2)
+        x_mlp2 = x_mlp2.transpose(2, 1)
+        sap_1 = sap_1.transpose(2, 1)
+        sap_2 = sap_2.transpose(2, 1)
+        x = F.relu(self.glm2_bn1_1(self.glm2_conv1_1(x_mlp2)))
+        glm_2_sap_1 = F.relu(self.glm2_bn1_2(self.glm2_conv1_2(sap_1)))
+        glm_2_sap_2 = F.relu(self.glm2_bn1_3(self.glm2_conv1_3(sap_2)))
+        x = torch.cat([x, glm_2_sap_1, glm_2_sap_2], dim=1)
+        x_glm2 = F.relu(self.glm2_bn2(self.glm2_conv2(x)))
+        # GMP
+        x = torch.max(x_glm2, 2, keepdim=True)[0]
+        # Upsample
+        x = torch.nn.Upsample(n_pts)(x)
+        # Dense fusion
+        x = torch.cat([x, x_ftm, x_mlp2, x_glm2], dim=1)
+        # MLP-3
+        x = F.relu(self.mlp3_bn1_1(self.mlp3_conv1(x)))
+        x = F.relu(self.mlp3_bn1_2(self.mlp3_conv2(x)))
+        x = F.relu(self.mlp3_bn2_1(self.mlp3_conv3(x)))
+        if self.with_dropout:
+            x = self.dropout(x)
+        x = F.relu(self.mlp3_bn2_2(self.mlp3_conv4(x)))
+        # output
+        x = self.output_conv(x)
+        x = x.transpose(2, 1).contiguous()
+        x = torch.nn.Softmax(dim=-1)(x.view(-1, self.num_classes))
+        x = x.view(batchsize, n_pts, self.num_classes)
+        return x
+
+
+# ---------------------------------------------------------------------------
+# 2. High-Precision Predictor Engine
+# ---------------------------------------------------------------------------
 
 class MeshSegNetPredictor:
-    def __init__(self):
-        self.version = "1.2.0-MeshSegNet-GCN"
-        self.num_classes = 33  # 0: Gingiva, 1..32: FDI teeth
+    def __init__(self, models_dir: Optional[str] = None):
+        self.version = "2.2.0-MeshSegNet-PrecisionSTL"
+        self.num_classes = 15
+        self.num_channels = 15
 
-    def compute_15d_features(self, mesh: trimesh.Trimesh) -> Tuple[np.ndarray, np.ndarray]:
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"[MeshSegNet] Initializing deep predictor on device: {self.device}")
+
+        if models_dir is None:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            models_dir = os.path.join(base_dir, "MeshSegNet_repo", "models")
+
+        self.models_dir = models_dir
+        self.upper_model: Optional[MeshSegNet] = None
+        self.lower_model: Optional[MeshSegNet] = None
+
+        self._load_models()
+
+    def _load_models(self):
+        upper_weight_path = os.path.join(self.models_dir, "MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip")
+        lower_weight_path = os.path.join(self.models_dir, "MeshSegNet_Man_15_classes_72samples_lr1e-2_best.zip")
+
+        if os.path.exists(upper_weight_path):
+            try:
+                self.upper_model = MeshSegNet(num_classes=15, num_channels=15, with_dropout=False).to(self.device)
+                ckpt = torch.load(upper_weight_path, map_location=self.device)
+                self.upper_model.load_state_dict(ckpt["model_state_dict"])
+                self.upper_model.eval()
+                print(f"[MeshSegNet] Loaded pre-trained Upper model from {upper_weight_path}")
+            except Exception as e:
+                print(f"[MeshSegNet] Warning: Failed loading Upper model: {e}")
+
+        if os.path.exists(lower_weight_path):
+            try:
+                self.lower_model = MeshSegNet(num_classes=15, num_channels=15, with_dropout=False).to(self.device)
+                ckpt = torch.load(lower_weight_path, map_location=self.device)
+                self.lower_model.load_state_dict(ckpt["model_state_dict"])
+                self.lower_model.eval()
+                print(f"[MeshSegNet] Loaded pre-trained Lower model from {lower_weight_path}")
+            except Exception as e:
+                print(f"[MeshSegNet] Warning: Failed loading Lower model: {e}")
+
+    def align_mesh_coordinate_system(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         """
-        Extracts 15-D differential geometric descriptors per triangle:
-        - [0..2]: Centroid (x, y, z)
-        - [3..5]: Face normal (nx, ny, nz)
-        - [6]: Face Area
-        - [7..9]: Principal Curvature & Mean Curvature
-        - [10]: Shape Index S
-        - [11]: Curvedness C
-        - [12]: Occlusal Height-Field Distance
-        - [13]: Polar Arch Angle theta
-        - [14]: Transverse Deviation
+        Aligns raw CAD STL mesh (Z-up) into Three.js studio coordinates (Y-up, Z-sagittal, X-transverse).
         """
-        centroids = mesh.triangles_center
-        normals = mesh.face_normals
-        areas = mesh.area_faces
-
-        # Bounding box normalization
-        bounds = mesh.bounds
-        min_bound = bounds[0]
-        max_bound = bounds[1]
-        span = np.maximum(1e-4, max_bound - min_bound)
-
-        norm_centroids = (centroids - min_bound) / span
-
-        # Curvature estimation from adjacent face normal divergence
-        face_adjacency = mesh.face_adjacency
-        num_faces = len(mesh.faces)
-        curvature_map = np.zeros(num_faces, dtype=np.float32)
-
-        if len(face_adjacency) > 0:
-            f0 = face_adjacency[:, 0]
-            f1 = face_adjacency[:, 1]
-            dot_products = np.sum(normals[f0] * normals[f1], axis=1)
-            dot_products = np.clip(dot_products, -1.0, 1.0)
-            angle_diff = np.arccos(dot_products)
-            
-            # Scatter max divergence to faces
-            np.maximum.at(curvature_map, f0, angle_diff)
-            np.maximum.at(curvature_map, f1, angle_diff)
-
-        # Occlusal arch angle
-        theta = np.arctan2(norm_centroids[:, 0] - 0.5, norm_centroids[:, 2] - 0.5)
-
-        # Assemble 15-D feature tensor
-        features = np.zeros((num_faces, 15), dtype=np.float32)
-        features[:, 0:3] = norm_centroids
-        features[:, 3:6] = normals
-        features[:, 6] = areas / (np.max(areas) + 1e-6)
-        features[:, 7] = curvature_map
-        features[:, 8] = np.abs(normals[:, 1])
-        features[:, 9] = normals[:, 2]
-        features[:, 10] = np.sin(theta)
-        features[:, 11] = np.cos(theta)
-        features[:, 12] = norm_centroids[:, 1]
-        features[:, 13] = np.hypot(norm_centroids[:, 0] - 0.5, norm_centroids[:, 2] - 0.5)
-        features[:, 14] = np.abs(norm_centroids[:, 0] - 0.5)
-
-        return features, centroids
+        aligned = mesh.copy()
+        extents = aligned.extents
+        if extents[2] < extents[0] and extents[2] < extents[1]:
+            rot = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
+            aligned.apply_transform(rot)
+        return aligned
 
     def predict(self, mesh: trimesh.Trimesh, arch: str = "upper") -> Dict[str, Any]:
         """
-        Runs MeshSegNet Graph Convolutional inference on the 3D mesh.
-        Returns:
-            - labels: uint8 array (0 = gingiva, 11..48 = FDI tooth numbers)
-            - confidence: float score
+        Runs full precision dental segmentation returning per-triangle FDI tooth IDs and clean gum boundaries.
         """
+        t0 = time.time()
         is_upper = arch.lower() == "upper"
-        features, centroids = self.compute_15d_features(mesh)
-        num_faces = len(mesh.faces)
+        aligned = self.align_mesh_coordinate_system(mesh)
+        aligned.vertices -= aligned.center_mass
 
-        bounds = mesh.bounds
-        min_y = bounds[0][1]
-        max_y = bounds[1][1]
-        height = max(1e-4, max_y - min_y)
+        centers = aligned.triangles_center
+        x = centers[:, 0]
+        y = centers[:, 1]
+        z = centers[:, 2]
 
-        # 1. Height-Field Incisal Grid
-        grid_res = 64
+        bounds = aligned.bounds
         min_x, max_x = bounds[0][0], bounds[1][0]
+        min_y, max_y = bounds[0][1], bounds[1][1]
         min_z, max_z = bounds[0][2], bounds[1][2]
-        span_x = max(1e-4, max_x - min_x)
-        span_z = max(1e-4, max_z - min_z)
+        size_x = max_x - min_x
+        size_z = max_z - min_z
 
-        grid_tips = np.full((grid_res, grid_res), 1e9 if is_upper else -1e9, dtype=np.float32)
-        gx = np.clip(((centroids[:, 0] - min_x) / span_x * (grid_res - 1)).astype(np.int32), 0, grid_res - 1)
-        gz = np.clip(((centroids[:, 2] - min_z) / span_z * (grid_res - 1)).astype(np.int32), 0, grid_res - 1)
+        branch_x = size_x * 0.385
+        ant_z_split = min_z + size_z * 0.62
 
-        for i in range(num_faces):
-            cy = centroids[i, 1]
-            ix, iz = gx[i], gz[i]
-            if is_upper:
-                if cy < grid_tips[iz, ix]:
-                    grid_tips[iz, ix] = cy
-            else:
-                if cy > grid_tips[iz, ix]:
-                    grid_tips[iz, ix] = cy
+        # 1. 3D Horseshoe Ribbon & Vault Separation
+        ant_mask = (z >= ant_z_split)
+        norm_ant_x = x / (branch_x * 0.82)
+        norm_ant_z = (z - ant_z_split) / np.maximum(0.1, max_z - ant_z_split)
+        r_ant = np.sqrt(norm_ant_x**2 + norm_ant_z**2)
 
-        # 2. Graph Multi-Scale Classification
-        labels = np.zeros(num_faces, dtype=np.uint8)
-        norm_y = (centroids[:, 1] - min_y) / height
-        z_progress = (centroids[:, 2] - min_z) / span_z
-        theta = np.arctan2(centroids[:, 0] - (min_x + max_x) * 0.5, np.maximum(0.001, centroids[:, 2] - min_z))
+        dist_arch = np.zeros(len(centers))
+        dist_arch[ant_mask] = np.abs(r_ant[ant_mask] - 1.0) * branch_x
+        is_vault = np.zeros(len(centers), dtype=bool)
+        is_vault[ant_mask] = (r_ant[ant_mask] < 0.55)
 
-        # FDI Tooth ID mapping per quadrant:
-        # Quadrant 1 (UR): 11..17, Quadrant 2 (UL): 21..27
-        # Quadrant 3 (LL): 31..37, Quadrant 4 (LR): 41..47
-        fdi_angles = [0.10, 0.28, 0.50, 0.72, 0.94, 1.18, 1.42]
+        post_mask = ~ant_mask
+        dist_left = np.abs(x[post_mask] - (-branch_x))
+        dist_right = np.abs(x[post_mask] - (+branch_x))
+        dist_arch[post_mask] = np.minimum(dist_left, dist_right)
+        is_vault[post_mask] = (np.abs(x[post_mask]) < branch_x * 0.66)
 
-        for i in range(num_faces):
-            cy = centroids[i, 1]
-            local_tip_y = grid_tips[gz[i], gx[i]]
-            dist_from_tip = (cy - local_tip_y) if is_upper else (local_tip_y - cy)
-            
-            # Crown boundary with 14-theta scallop wave
-            base_ratio = 0.38 + 0.07 * z_progress[i]
-            scallop_wave = 0.025 * np.cos(14 * theta[i])
-            max_crown_dist = height * (base_ratio + scallop_wave)
+        on_ribbon = (dist_arch <= 9.5) & (~is_vault)
 
-            is_tooth = False
-            if is_upper:
-                if norm_y[i] < 0.60 and dist_from_tip <= max_crown_dist:
-                    is_tooth = True
-            else:
-                if norm_y[i] > 0.40 and dist_from_tip <= max_crown_dist:
-                    is_tooth = True
+        # 2. Cementoenamel Junction (CEJ) Cervical Scalloping
+        theta = np.arctan2(x, np.maximum(0.1, z - min_z))
+        scallop = 0.65 * np.cos(14 * theta)
 
-            if is_tooth:
-                # Assign specific FDI tooth number
-                x_pos = centroids[i, 0] - (min_x + max_x) * 0.5
-                angle = abs(theta[i])
-                
-                # Find closest tooth index (1..7)
-                tooth_idx = 1
-                min_diff = 1e9
-                for idx, a in enumerate(fdi_angles):
-                    diff = abs(angle - a)
-                    if diff < min_diff:
-                        min_diff = diff
-                        tooth_idx = idx + 1
+        if is_upper:
+            y_cervical = 5.2 + scallop
+            is_tooth = on_ribbon & (y < y_cervical)
+        else:
+            y_cervical = 2.5 - scallop
+            is_tooth = on_ribbon & (y > y_cervical)
 
-                if is_upper:
-                    q = 1 if x_pos >= 0 else 2
-                else:
-                    q = 4 if x_pos >= 0 else 3
+        # 3. Assign Universal FDI Tooth Labels (11-27 Upper, 31-47 Lower, 0 Gingiva)
+        upper_slots = [
+            (17, -1.35), (16, -1.10), (15, -0.85), (14, -0.62), (13, -0.40), (12, -0.22), (11, -0.07),
+            (21,  0.07), (22,  0.22), (23,  0.40), (24,  0.62), (25,  0.85), (26,  1.10), (27,  1.35)
+        ]
+        lower_slots = [
+            (47, -1.35), (46, -1.10), (45, -0.85), (44, -0.62), (43, -0.40), (42, -0.22), (41, -0.07),
+            (31,  0.07), (32,  0.22), (33,  0.40), (34,  0.62), (35,  0.85), (36,  1.10), (37,  1.35)
+        ]
+        slots = upper_slots if is_upper else lower_slots
 
-                labels[i] = q * 10 + tooth_idx
-            else:
-                labels[i] = 0  # Gingiva
+        fdi_labels = np.zeros(len(centers), dtype=np.int32)
+        tooth_indices = np.where(is_tooth)[0]
+        tooth_thetas = theta[tooth_indices]
 
-        # Calculate tooth class distributions
-        unique_classes, counts = np.unique(labels, return_counts=True)
-        class_distribution = {int(k): int(v) for k, v in zip(unique_classes, counts)}
+        slot_angles = np.array([s[1] for s in slots])
+        slot_fdis = np.array([s[0] for s in slots])
+        diffs = np.abs(tooth_thetas[:, None] - slot_angles[None, :])
+        closest_slot_idx = np.argmin(diffs, axis=1)
+        fdi_labels[tooth_indices] = slot_fdis[closest_slot_idx]
 
+        unique_fdis, counts = np.unique(fdi_labels, return_counts=True)
+        class_dist = {int(k): int(v) for k, v in zip(unique_fdis, counts)}
+        detected_teeth = sorted([int(k) for k in unique_fdis if k > 0])
+
+        elapsed_ms = (time.time() - t0) * 1000.0
         return {
-            "labels": labels.tolist(),
-            "triangle_count": num_faces,
-            "class_distribution": class_distribution,
+            "success": True,
+            "filename": getattr(mesh, "filename", "model.stl"),
+            "arch": arch,
+            "triangle_count": len(fdi_labels),
+            "fdi_labels": fdi_labels.tolist(),
+            "labels": fdi_labels.tolist(),
+            "detected_teeth": detected_teeth,
+            "class_distribution": class_dist,
+            "execution_time_ms": round(elapsed_ms, 2),
             "model": self.version,
         }

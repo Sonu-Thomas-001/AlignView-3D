@@ -1,6 +1,6 @@
 """
 AlignView-3D: Local AI Dental Mesh Segmentation Microservice (MeshSegNet Pipeline)
-Runs high-precision 3D Graph Convolutional deep segmentation on intraoral STL scans.
+Runs high-precision 3D Graph Convolutional deep segmentation on intraoral STL/PLY/OBJ scans.
 """
 
 import io
@@ -9,11 +9,14 @@ import uvicorn
 from fastapi import FastAPI, File, UploadFile, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import trimesh
-from meshsegnet_model import MeshSegNetPredictor
+try:
+    from meshsegnet_model import MeshSegNetPredictor
+except ImportError:
+    from ai_service.meshsegnet_model import MeshSegNetPredictor
 
 app = FastAPI(
     title="AlignView-3D MeshSegNet AI Microservice",
-    version="1.2.0",
+    version="2.0.0",
     description="Deep Learning 3D Dental Scan Segmentation Service (MeshSegNet)"
 )
 
@@ -36,7 +39,10 @@ def health_check():
         "status": "online",
         "service": "AlignView-3D-MeshSegNet",
         "version": predictor.version,
-        "supported_formats": ["STL", "PLY", "OBJ"]
+        "device": str(predictor.device),
+        "supported_formats": ["STL", "PLY", "OBJ"],
+        "upper_model_ready": predictor.upper_model is not None,
+        "lower_model_ready": predictor.lower_model is not None,
     }
 
 
@@ -46,7 +52,7 @@ async def segment_mesh(
     arch: str = Query("upper", enum=["upper", "lower"])
 ):
     """
-    Receives raw STL binary file, runs MeshSegNet GCN inference,
+    Receives raw STL/PLY/OBJ binary file, runs MeshSegNet GCN inference,
     and returns per-triangle class segmentation labels (0 = Gingiva, 11..48 = FDI tooth IDs).
     """
     t0 = time.time()
@@ -54,11 +60,19 @@ async def segment_mesh(
         content = await file.read()
         file_obj = io.BytesIO(content)
 
+        # Detect file extension
+        fname = file.filename.lower() if file.filename else "model.stl"
+        file_type = "stl"
+        if fname.endswith(".ply"):
+            file_type = "ply"
+        elif fname.endswith(".obj"):
+            file_type = "obj"
+
         # Load 3D mesh via trimesh
-        mesh = trimesh.load(file_obj, file_type="stl")
+        mesh = trimesh.load(file_obj, file_type=file_type)
         if isinstance(mesh, trimesh.Scene):
             if len(mesh.geometry) == 0:
-                raise HTTPException(status_code=400, detail="Empty 3D Scene in STL")
+                raise HTTPException(status_code=400, detail="Empty 3D Scene in mesh file")
             mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
 
         # Run deep segmentation
@@ -71,6 +85,8 @@ async def segment_mesh(
             "arch": arch,
             "triangle_count": result["triangle_count"],
             "labels": result["labels"],
+            "fdi_labels": result["fdi_labels"],
+            "detected_teeth": result["detected_teeth"],
             "class_distribution": result["class_distribution"],
             "execution_time_ms": execution_time_ms,
             "model": result["model"],

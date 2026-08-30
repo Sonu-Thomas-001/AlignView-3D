@@ -80,3 +80,11 @@ export function getFDIToothFromPoint(point: THREE.Vector3, arch: 'upper' | 'lowe
 
   return closestTooth;
 }
+
+/**
+ * Returns FDI tooth info by FDI number (e.g., 11..48), or null if gingiva (0)
+ */
+export function getFDIToothByID(fdi: number): FDIToothInfo | null {
+  return FDI_TEETH_MAP[fdi] || null;
+}
+
