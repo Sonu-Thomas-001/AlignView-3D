@@ -281,7 +281,7 @@ export const DentalCanvas: React.FC = () => {
           {/* Rim Light for depth */}
           <directionalLight position={[0, 25, -30]} intensity={0.95} color="#CAD8F0" />
           {/* Floor Bounce Light */}
-          <directionalLight position={[0, -18, 15]} intensity={0.45} color="#FCE7F3" />
+          <directionalLight position={[0, -18, 15]} intensity={0.35} color="#FFFFFF" />
 
           {/* Dental 3D Model with teeth, gingiva, and movement */}
           <DentalArchModel
