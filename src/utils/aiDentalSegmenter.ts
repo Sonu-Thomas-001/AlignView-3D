@@ -75,7 +75,7 @@ function calculateSlotMargin(s: number, slots: ToothSlot[], isUpper: boolean): n
 /**
  * AI-Enhanced Anatomical Scalloped Gingival Margin Segmentation Engine
  * 
- * - Zero Color Bleeding / Overlap: Crisp razor-sharp boundary along the 14 FDI tooth cervical lines
+ * - Per-Triangle Solid Coloring: Zero Gouraud interpolation blur, 100% razor-sharp clinical boundary
  * - Distinct inverted-'U' crown zeniths over each individual tooth
  * - Sharp triangular interdental papillae dipping between every tooth pair
  * - 100% Solid Pearlescent White on all tooth crowns and composite orthodontic brackets
@@ -114,39 +114,41 @@ export function segmentDentalMeshAI(
   const gumBodyR = 0.820, gumBodyG = 0.365, gumBodyB = 0.425;     // #D15D6C
   const gumDeepR = 0.720, gumDeepG = 0.265, gumDeepB = 0.325;     // #B84352
 
-  // 2. Individual FDI Tooth Crown & Papilla Margin Field (Crisp Razor-Sharp Separation)
-  for (let i = 0; i < count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
+  // 2. Per-Triangle Non-Interpolated Solid Coloring (Zero Gradient Blur / Zero Overlap)
+  const numTriangles = Math.floor(count / 3);
 
-    const normY = (y - minY) / height;
-    const zProg = Math.max(0, Math.min(1, (z - minZ) / sizeZ)); // 0 = posterior molars, 1 = anterior incisors
+  for (let t = 0; t < numTriangles; t++) {
+    const i0 = t * 3;
+    const i1 = t * 3 + 1;
+    const i2 = t * 3 + 2;
+
+    // Evaluate centroid of triangle
+    const cx = (pos.getX(i0) + pos.getX(i1) + pos.getX(i2)) / 3;
+    const cy = (pos.getY(i0) + pos.getY(i1) + pos.getY(i2)) / 3;
+    const cz = (pos.getZ(i0) + pos.getZ(i1) + pos.getZ(i2)) / 3;
+
+    const normY = (cy - minY) / height;
+    const zProg = Math.max(0, Math.min(1, (cz - minZ) / sizeZ)); // 0 = posterior molars, 1 = anterior incisors
 
     // Normalize arch parameter s along curve [-1, +1]
-    const s = (x / (sizeX * 0.5)) * Math.pow(1.0 - zProg * 0.45, 0.35);
+    const s = (cx / (sizeX * 0.5)) * Math.pow(1.0 - zProg * 0.45, 0.35);
 
     // Compute precise parabolic cervical margin for this specific tooth slot
     const marginY = calculateSlotMargin(s, slots, isUpper);
 
-    // CRISP BINARY SEPARATION: 0.0 = Pure White Enamel, 1.0 = Pure Coral Pink Gum
-    let isGum = false;
-
+    // Discrete Binary Classification for the ENTIRE triangle:
+    let isGumTriangle = false;
     if (isUpper) {
-      // Upper Jaw: Teeth point DOWN (towards minY <= marginY), Gums are UP (towards maxY > marginY)
-      isGum = normY > marginY;
+      isGumTriangle = normY > marginY;
     } else {
-      // Lower Jaw: Teeth point UP (towards maxY >= marginY), Gums are DOWN (towards minY < marginY)
-      isGum = normY < marginY;
+      isGumTriangle = normY < marginY;
     }
 
-    if (!isGum) {
-      // 100% Pure White Tooth Crown & Attachments
-      const idx = i * 3;
-      colors[idx] = toothR;
-      colors[idx + 1] = toothG;
-      colors[idx + 2] = toothB;
-    } else {
+    let r = toothR;
+    let g = toothG;
+    let b = toothB;
+
+    if (isGumTriangle) {
       // 100% Coral-Rose Gingiva with natural vascular base depth gradient
       const baseDist = isUpper ? Math.max(0, normY - 0.60) / 0.40 : Math.max(0, 0.40 - normY) / 0.40;
       const neckDist = isUpper ? Math.max(0, 0.70 - normY) / 0.30 : Math.max(0, normY - 0.30) / 0.30;
@@ -165,10 +167,17 @@ export function segmentDentalMeshAI(
         finalGumB = gumBodyB * (1 - neckDist * 0.35) + gumMarginB * (neckDist * 0.35);
       }
 
-      const idx = i * 3;
-      colors[idx] = finalGumR;
-      colors[idx + 1] = finalGumG;
-      colors[idx + 2] = finalGumB;
+      r = finalGumR;
+      g = finalGumG;
+      b = finalGumB;
+    }
+
+    // Assign identical color to all 3 vertices of this triangle (Zero Gouraud bleed)
+    for (const vIdx of [i0, i1, i2]) {
+      const idx = vIdx * 3;
+      colors[idx] = r;
+      colors[idx + 1] = g;
+      colors[idx + 2] = b;
     }
   }
 
