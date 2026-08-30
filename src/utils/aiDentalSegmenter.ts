@@ -133,6 +133,11 @@ export function segmentDentalMeshAI(
     colors[idx + 2] = b;
   }
 
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const colorAttr = new THREE.BufferAttribute(colors, 3);
+  colorAttr.needsUpdate = true;
+  geometry.setAttribute('color', colorAttr);
+  if (geometry.attributes.color) {
+    geometry.attributes.color.needsUpdate = true;
+  }
   return geometry;
 }

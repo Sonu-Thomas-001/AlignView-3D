@@ -45,12 +45,14 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   // Dynamically apply AI scalloped segmentation & white attachment coloring
   const upperRenderGeom = useMemo(() => {
     if (!selectedUpperFile?.customBufferGeometry) return null;
-    return segmentDentalMeshAI(selectedUpperFile.customBufferGeometry, 'upper');
+    const cloned = selectedUpperFile.customBufferGeometry.clone();
+    return segmentDentalMeshAI(cloned, 'upper');
   }, [selectedUpperFile?.customBufferGeometry]);
 
   const lowerRenderGeom = useMemo(() => {
     if (!selectedLowerFile?.customBufferGeometry) return null;
-    return segmentDentalMeshAI(selectedLowerFile.customBufferGeometry, 'lower');
+    const cloned = selectedLowerFile.customBufferGeometry.clone();
+    return segmentDentalMeshAI(cloned, 'lower');
   }, [selectedLowerFile?.customBufferGeometry]);
 
   // Handle FDI Tooth Hover Tooltip
