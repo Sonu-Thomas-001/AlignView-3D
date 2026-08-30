@@ -8,6 +8,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { DentalArchModel } from './DentalArchModel';
 import { ToothHoverTooltip } from './ToothHoverTooltip';
+import { Upload } from 'lucide-react';
 
 // Camera controller with smooth tweening
 const CameraController: React.FC = () => {
@@ -175,9 +176,13 @@ export const DentalCanvas: React.FC = () => {
     addMeasurementPoint,
     viewMode,
     studioTheme,
+    upperFiles,
+    lowerFiles,
+    openUploadModal,
   } = useViewerStore();
 
   const isDark = studioTheme === 'dark';
+  const totalFiles = upperFiles.length + lowerFiles.length;
 
   // Dynamic clipping plane for sectioning tool
   const clippingPlane = useMemo(() => {
@@ -320,6 +325,38 @@ export const DentalCanvas: React.FC = () => {
           {/* Screenshot capture worker */}
           <ScreenshotWorker />
         </Canvas>
+      )}
+
+      {/* Empty State / Upload Invitation Overlay */}
+      {totalFiles === 0 && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center p-6 bg-slate-950/20 backdrop-blur-[2px] pointer-events-auto">
+          <div 
+            onClick={() => openUploadModal('auto')}
+            className={`cursor-pointer max-w-sm sm:max-w-md w-full p-6 sm:p-8 rounded-3xl border-2 border-dashed transition-all transform hover:scale-[1.02] text-center shadow-2xl ${
+              isDark 
+                ? 'bg-slate-900/90 border-slate-700/90 hover:border-blue-500 text-white' 
+                : 'bg-white/90 border-slate-300 hover:border-blue-500 text-slate-800'
+            }`}
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-blue-600/10 text-blue-500 mx-auto flex items-center justify-center mb-3 sm:mb-4 border border-blue-500/20 shadow-inner">
+              <Upload className="w-7 h-7 sm:w-8 sm:h-8" />
+            </div>
+            <h3 className="text-base sm:text-lg font-bold mb-1">No 3D Models Loaded</h3>
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+              Upload your Upper & Lower dental scan STL files or treatment setup sequence. Template files are automatically detected as Stage 01.
+            </p>
+            <button
+              id="canvas-empty-upload-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                openUploadModal('auto');
+              }}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+            >
+              Upload STL Files
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Floating FDI Tooth Identification Tooltip */}

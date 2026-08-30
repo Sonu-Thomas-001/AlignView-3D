@@ -340,22 +340,15 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({
                   No {isUpper ? 'Upper' : 'Lower'} STLs
                 </p>
                 <p className="text-[11px] text-slate-400 max-w-[200px] leading-relaxed">
-                  All {isUpper ? 'upper' : 'lower'} arch files have been deleted. You can upload custom scans or restore default samples.
+                  Upload your {isUpper ? 'upper' : 'lower'} jaw STL files to inspect and preview 3D treatment stages.
                 </p>
-                <div className="flex flex-col sm:flex-row items-center gap-2 mt-3 w-full max-w-[210px]">
+                <div className="flex items-center gap-2 mt-3 w-full max-w-[160px]">
                   <button
                     onClick={() => openUploadModal(arch)}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                    className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl transition-all shadow-sm shadow-blue-500/20 cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload STL</span>
-                  </button>
-                  <button
-                    onClick={() => resetDefaultSTLs(arch)}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3 text-slate-500" />
-                    <span>Restore</span>
                   </button>
                 </div>
               </div>

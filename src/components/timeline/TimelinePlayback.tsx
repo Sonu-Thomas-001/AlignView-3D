@@ -138,13 +138,15 @@ export const TimelinePlayback: React.FC = () => {
             {/* Active progress fill */}
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-75"
-              style={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
+              style={{ width: `${totalSteps > 1 ? ((currentStep - 1) / (totalSteps - 1)) * 100 : 0}%` }}
             />
           </div>
 
           {/* Discrete Stage Tick Dots */}
           <div className="absolute inset-x-0 flex justify-between pointer-events-none px-1">
-            {totalSteps <= 16 ? (
+            {totalSteps <= 1 ? (
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+            ) : totalSteps <= 16 ? (
               Array.from({ length: totalSteps }).map((_, i) => {
                 const isPastOrCurrent = i + 1 <= currentStep;
                 return (
@@ -179,7 +181,7 @@ export const TimelinePlayback: React.FC = () => {
             id="slider-file-sequence"
             type="range"
             min="1"
-            max={totalSteps}
+            max={Math.max(1, totalSteps)}
             value={currentStep}
             onChange={(e) => setCurrentStep(parseInt(e.target.value))}
             className="w-full relative z-10 opacity-0 cursor-pointer h-5 sm:h-6"
@@ -189,7 +191,7 @@ export const TimelinePlayback: React.FC = () => {
           <div
             className="absolute top-1/2 -translate-y-1/2 w-3.5 sm:w-4 h-3.5 sm:h-4 bg-blue-600 rounded-full border-2 border-white shadow-md pointer-events-none transition-all duration-75"
             style={{
-              left: `calc(${((currentStep - 1) / (totalSteps - 1)) * 100}% - 7px)`,
+              left: `calc(${totalSteps > 1 ? ((currentStep - 1) / (totalSteps - 1)) * 100 : 0}% - 7px)`,
             }}
           />
         </div>

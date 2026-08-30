@@ -2,83 +2,8 @@ import { create } from 'zustand';
 import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
 
-const INITIAL_UPPER_FILES: STLFileInfo[] = [
-  {
-    id: 'stl_Krishnapriya_Upper_jaw___01___Template_stl',
-    name: 'Krishnapriya Upper jaw - 01 - Template.stl',
-    arch: 'upper',
-    stage: 1,
-    date: '29 Aug 2026',
-    fileSize: '14.1 MB',
-    verticesCount: 882000,
-    trianglesCount: 294000,
-    dimensions: {
-      width: 63.0,
-      depth: 51.9,
-      height: 15.6,
-    },
-    customUrl: `/api/stl-files/${encodeURIComponent('Krishnapriya Upper jaw - 01 - Template.stl')}`,
-  },
-  ...Array.from({ length: 25 }, (_, i) => {
-    const num = (i + 1).toString().padStart(2, '0');
-    const name = `Krishnapriya Upper jaw - ${num} - Model.stl`;
-    return {
-      id: `stl_Krishnapriya_Upper_jaw___${num}___Model_stl`,
-      name,
-      arch: 'upper' as const,
-      stage: i + 1,
-      date: '29 Aug 2026',
-      fileSize: `${(13.8 + (i % 4) * 0.3).toFixed(1)} MB`,
-      verticesCount: 871800,
-      trianglesCount: 290600,
-      dimensions: {
-        width: 63.0,
-        depth: 51.9,
-        height: 15.6,
-      },
-      customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
-    };
-  }),
-];
-
-const INITIAL_LOWER_FILES: STLFileInfo[] = [
-  {
-    id: 'stl_Krishnapriya_Lower_jaw___01___Template_stl',
-    name: 'Krishnapriya Lower jaw - 01 - Template.stl',
-    arch: 'lower',
-    stage: 1,
-    date: '29 Aug 2026',
-    fileSize: '12.3 MB',
-    verticesCount: 742000,
-    trianglesCount: 247000,
-    dimensions: {
-      width: 58.5,
-      depth: 48.0,
-      height: 14.8,
-    },
-    customUrl: `/api/stl-files/${encodeURIComponent('Krishnapriya Lower jaw - 01 - Template.stl')}`,
-  },
-  ...Array.from({ length: 7 }, (_, i) => {
-    const num = (i + 1).toString().padStart(2, '0');
-    const name = `Krishnapriya Lower jaw - ${num} - Model.stl`;
-    return {
-      id: `stl_Krishnapriya_Lower_jaw___${num}___Model_stl`,
-      name,
-      arch: 'lower' as const,
-      stage: i + 1,
-      date: '29 Aug 2026',
-      fileSize: '11.6 MB',
-      verticesCount: 733200,
-      trianglesCount: 244400,
-      dimensions: {
-        width: 58.5,
-        depth: 48.0,
-        height: 14.8,
-      },
-      customUrl: `/api/stl-files/${encodeURIComponent(name)}`,
-    };
-  }),
-];
+const INITIAL_UPPER_FILES: STLFileInfo[] = [];
+const INITIAL_LOWER_FILES: STLFileInfo[] = [];
 
 interface ViewerState {
   upperFiles: STLFileInfo[];
@@ -194,7 +119,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   modelColor: '#FFFFFF',
   setModelColor: (color) => set({ modelColor: color }),
 
-  patientName: 'Krishnapriya',
+  patientName: '',
   setPatientName: (name) => set({ patientName: name }),
 
   hoveredTooth: null,
@@ -206,8 +131,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   upperFiles: INITIAL_UPPER_FILES,
   lowerFiles: INITIAL_LOWER_FILES,
-  selectedUpperId: INITIAL_UPPER_FILES[0]?.id || '',
-  selectedLowerId: INITIAL_LOWER_FILES[0]?.id || '',
+  selectedUpperId: '',
+  selectedLowerId: '',
   
   viewMode: 'both',
   renderMode: 'shaded',
@@ -215,7 +140,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   
   isPlaying: false,
   currentStep: 1,
-  totalSteps: 25,
+  totalSteps: 1,
   playbackSpeed: 1.0,
   isLooping: true,
   
@@ -242,11 +167,11 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   })),
   
   modelStats: {
-    vertices: 328654,
-    triangles: 657302,
-    width: 66.0,
-    depth: 61.0,
-    height: 42.0,
+    vertices: 0,
+    triangles: 0,
+    width: 0,
+    depth: 0,
+    height: 0,
   },
   
   setViewMode: (mode) => set({ viewMode: mode }),

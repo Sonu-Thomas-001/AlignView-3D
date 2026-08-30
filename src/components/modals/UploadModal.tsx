@@ -58,30 +58,36 @@ export const UploadModal: React.FC = () => {
   const analysis = useMemo(() => {
     if (stagedFiles.length === 0) return null;
 
-    const upperList: { file: File; stage?: number; name: string }[] = [];
-    const lowerList: { file: File; stage?: number; name: string }[] = [];
-    const unknownList: { file: File; stage?: number; name: string }[] = [];
+    const upperList: { file: File; stage?: number; name: string; isTemplate: boolean }[] = [];
+    const lowerList: { file: File; stage?: number; name: string; isTemplate: boolean }[] = [];
+    const unknownList: { file: File; stage?: number; name: string; isTemplate: boolean }[] = [];
 
     for (const f of stagedFiles) {
       const meta = parseSTLFilename(f.name);
+      const isTemplate = meta.isTemplate || /template/i.test(f.name);
       const targetArch = selectedArchMode !== 'auto' ? selectedArchMode : meta.arch;
 
       if (targetArch === 'upper') {
-        upperList.push({ file: f, stage: meta.stage, name: f.name });
+        upperList.push({ file: f, stage: meta.stage, name: f.name, isTemplate });
       } else if (targetArch === 'lower') {
-        lowerList.push({ file: f, stage: meta.stage, name: f.name });
+        lowerList.push({ file: f, stage: meta.stage, name: f.name, isTemplate });
       } else {
-        unknownList.push({ file: f, stage: meta.stage, name: f.name });
+        unknownList.push({ file: f, stage: meta.stage, name: f.name, isTemplate });
       }
     }
 
     const upperStages = upperList.map(u => u.stage).filter((s): s is number => s !== undefined).sort((a, b) => a - b);
     const lowerStages = lowerList.map(l => l.stage).filter((s): s is number => s !== undefined).sort((a, b) => a - b);
 
+    const upperTemplates = upperList.filter(u => u.isTemplate).length;
+    const lowerTemplates = lowerList.filter(l => l.isTemplate).length;
+
     return {
       upperCount: upperList.length,
       lowerCount: lowerList.length,
       unknownCount: unknownList.length,
+      upperTemplates,
+      lowerTemplates,
       upperStageRange: upperStages.length > 0 ? `${upperStages[0]} → ${upperStages[upperStages.length - 1]}` : null,
       lowerStageRange: lowerStages.length > 0 ? `${lowerStages[0]} → ${lowerStages[lowerStages.length - 1]}` : null,
       totalFiles: stagedFiles.length,
@@ -150,6 +156,8 @@ export const UploadModal: React.FC = () => {
           ? selectedArchMode 
           : (meta.arch === 'lower' ? 'lower' : 'upper'); // default unassigned to upper
 
+        const isTemplate = meta.isTemplate || /template/i.test(file.name);
+
         const buffer = await file.arrayBuffer();
         let geometry = loader.parse(buffer);
         geometry = normalizeDentalGeometry(geometry, resolvedArch);
@@ -167,7 +175,7 @@ export const UploadModal: React.FC = () => {
           id: `stl_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
           name: file.name,
           arch: resolvedArch,
-          stage: meta.stage ?? (i + 1),
+          stage: meta.stage ?? (isTemplate ? 1 : i + 1),
           date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
           fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
           verticesCount: vertCount,
@@ -177,6 +185,7 @@ export const UploadModal: React.FC = () => {
             depth: parseFloat(size.z.toFixed(1)),
             height: parseFloat(size.y.toFixed(1)),
           },
+          isTemplate,
           customBufferGeometry: geometry,
         };
 
@@ -357,6 +366,11 @@ export const UploadModal: React.FC = () => {
                   <p className="text-[11px] text-slate-500">
                     {analysis?.upperStageRange ? `Stages ${analysis.upperStageRange}` : 'No upper models'}
                   </p>
+                  {analysis?.upperTemplates ? (
+                    <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 font-semibold self-start mt-0.5">
+                      ✓ Auto-detected Template
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* Lower Arch Card */}
@@ -373,6 +387,11 @@ export const UploadModal: React.FC = () => {
                   <p className="text-[11px] text-slate-500">
                     {analysis?.lowerStageRange ? `Stages ${analysis.lowerStageRange}` : 'No lower models'}
                   </p>
+                  {analysis?.lowerTemplates ? (
+                    <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 font-semibold self-start mt-0.5">
+                      ✓ Auto-detected Template
+                    </span>
+                  ) : null}
                 </div>
               </div>
 

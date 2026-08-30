@@ -4,13 +4,14 @@ import { STLFileInfo } from '@/types/dental';
 export interface ParsedSTLMeta {
   arch: 'upper' | 'lower' | 'unknown';
   stage?: number;
+  isTemplate: boolean;
   patientName?: string;
   cleanName: string;
 }
 
 /**
  * Parses a single STL filename to determine arch type (upper/lower),
- * treatment stage number, and patient name.
+ * treatment stage number, template identification, and patient name.
  */
 export function parseSTLFilename(filename: string): ParsedSTLMeta {
   // Strip extension
@@ -19,6 +20,9 @@ export function parseSTLFilename(filename: string): ParsedSTLMeta {
   let arch: 'upper' | 'lower' | 'unknown' = 'unknown';
   let stage: number | undefined = undefined;
   let patientName: string | undefined = undefined;
+
+  // Detect Template file
+  const isTemplate = /\b(?:template|tmpl|tmplte)\b|[-_\s]template[-_\s]/i.test(baseName);
 
   // 1. Detect Arch Type
   const upperPattern = /\b(upper\s*jaw|upperjaw|upper|maxillary|maxilla|max)\b|([_\-\s]u\d+)|(^u\d+)/i;
@@ -67,9 +71,14 @@ export function parseSTLFilename(filename: string): ParsedSTLMeta {
     }
   }
 
+  // If stage is still undefined and it is a template, default to Stage 1
+  if (stage === undefined && isTemplate) {
+    stage = 1;
+  }
+
   // 3. Extract Patient Name
   // Look for text prefix preceding the arch indicator or stage marker
-  const splitKeywords = /(?:\s*[-_]?\s*(?:upper\s*jaw|lower\s*jaw|upperjaw|lowerjaw|upper|lower|maxillary|mandibular|maxilla|mandible|stage|step|aligner|model)[-_]?\s*)/i;
+  const splitKeywords = /(?:\s*[-_]?\s*(?:upper\s*jaw|lower\s*jaw|upperjaw|lowerjaw|upper|lower|maxillary|mandibular|maxilla|mandible|stage|step|aligner|model|template)[-_]?\s*)/i;
   const parts = baseName.split(splitKeywords);
 
   if (parts.length > 0 && parts[0].trim().length > 1) {
@@ -79,7 +88,7 @@ export function parseSTLFilename(filename: string): ParsedSTLMeta {
       .trim();
 
     // Avoid taking generic words as patient names
-    const genericWords = /^(model|scan|arch|jaw|treatment|setup|aligner|stl|export|case|patient)$/i;
+    const genericWords = /^(model|scan|arch|jaw|treatment|setup|aligner|stl|export|case|patient|template)$/i;
     if (candidate && !genericWords.test(candidate) && !/^\d+$/.test(candidate)) {
       patientName = candidate;
     }
@@ -88,6 +97,7 @@ export function parseSTLFilename(filename: string): ParsedSTLMeta {
   return {
     arch,
     stage,
+    isTemplate,
     patientName,
     cleanName: baseName,
   };

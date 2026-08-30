@@ -16,6 +16,7 @@ export interface STLFileInfo {
     depth: number;
     height: number;
   };
+  isTemplate?: boolean;
   customUrl?: string;
   customBufferGeometry?: any;
 }
