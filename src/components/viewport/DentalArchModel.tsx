@@ -68,10 +68,12 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       return;
     }
 
+    let cancelled = false;
     const loader = new STLLoader();
     loader.load(
       url,
       (geometry) => {
+        if (cancelled) return;
         const normalized = normalizeDentalGeometry(geometry, 'upper');
         geometryCache.set(url, normalized);
         selectedUpperFile.customBufferGeometry = normalized;
@@ -80,6 +82,10 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       undefined,
       (err) => console.warn('Error loading Upper STL:', err)
     );
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedUpperFile, selectedUpperFile?.customBufferGeometry]);
 
   // Load and cache Lower STL geometry
@@ -106,10 +112,12 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       return;
     }
 
+    let cancelled = false;
     const loader = new STLLoader();
     loader.load(
       url,
       (geometry) => {
+        if (cancelled) return;
         const normalized = normalizeDentalGeometry(geometry, 'lower');
         geometryCache.set(url, normalized);
         selectedLowerFile.customBufferGeometry = normalized;
@@ -118,6 +126,10 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       undefined,
       (err) => console.warn('Error loading Lower STL:', err)
     );
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedLowerFile, selectedLowerFile?.customBufferGeometry]);
 
   // Handle FDI Tooth Hover Tooltip via 3D spatial dental mapping
@@ -189,6 +201,13 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       clipShadows: true,
     });
   }, [renderMode, clippingPlanesArray, modelColor]);
+
+  // Dispose the previous material whenever a new one is created, and on unmount
+  useEffect(() => {
+    return () => {
+      archMaterial.dispose();
+    };
+  }, [archMaterial]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (activeTool === 'measure') {

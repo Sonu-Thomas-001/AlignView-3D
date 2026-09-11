@@ -1,11 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { Sparkles, Activity } from 'lucide-react';
+import { computeStageSafetyMetrics } from '@/utils/movementAnalytics';
 
 export const ToothHoverTooltip: React.FC = () => {
-  const { hoveredTooth, currentStep } = useViewerStore();
+  const { hoveredTooth, currentStep, totalSteps } = useViewerStore();
+
+  const safetyMetrics = useMemo(
+    () => computeStageSafetyMetrics(currentStep, totalSteps),
+    [currentStep, totalSteps]
+  );
 
   if (!hoveredTooth) return null;
 
@@ -49,7 +55,7 @@ export const ToothHoverTooltip: React.FC = () => {
             <span>Stage {currentStep} Velocity</span>
           </div>
           <span className="font-bold text-emerald-400 tabular-nums">
-            0.18 mm / 1.3°
+            {safetyMetrics.maxTranslationMm} mm / {safetyMetrics.maxRotationDeg}°
           </span>
         </div>
       </div>

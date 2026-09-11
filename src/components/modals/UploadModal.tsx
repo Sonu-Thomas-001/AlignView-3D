@@ -138,6 +138,8 @@ export const UploadModal: React.FC = () => {
     const lowerSTLs: STLFileInfo[] = [];
 
     const loader = new STLLoader();
+    let upperFallbackStage = 0;
+    let lowerFallbackStage = 0;
 
     try {
       for (let i = 0; i < stagedFiles.length; i++) {
@@ -158,6 +160,9 @@ export const UploadModal: React.FC = () => {
 
         const isTemplate = meta.isTemplate || /template/i.test(file.name);
 
+        // Per-arch fallback stage counter for files with no parseable stage number
+        const fallbackStage = resolvedArch === 'upper' ? ++upperFallbackStage : ++lowerFallbackStage;
+
         const buffer = await file.arrayBuffer();
         let geometry = loader.parse(buffer);
         geometry = normalizeDentalGeometry(geometry, resolvedArch);
@@ -175,7 +180,7 @@ export const UploadModal: React.FC = () => {
           id: `stl_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
           name: file.name,
           arch: resolvedArch,
-          stage: meta.stage ?? (isTemplate ? 1 : i + 1),
+          stage: meta.stage ?? (isTemplate ? 1 : fallbackStage),
           date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
           fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
           verticesCount: vertCount,

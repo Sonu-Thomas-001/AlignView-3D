@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Search, MoreVertical, Plus, Trash2, CheckCircle2, X, RotateCcw, Upload, AlertTriangle } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { STLFileInfo } from '@/types/dental';
@@ -87,6 +87,23 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showConfirmDeleteAll, setShowConfirmDeleteAll] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Close kebab menu & delete-all confirm popover on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setActiveMenuId(null);
+        setShowConfirmDeleteAll(false);
+      }
+    };
+    if (activeMenuId || showConfirmDeleteAll) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeMenuId, showConfirmDeleteAll]);
 
   const files = isUpper ? upperFiles : lowerFiles;
   const selectedId = isUpper ? selectedUpperId : selectedLowerId;
@@ -120,7 +137,7 @@ export const ArchSidebar: React.FC<ArchSidebarProps> = ({
   const themeColor = isUpper ? '#2563EB' : '#10B981';
 
   return (
-    <aside className="w-full sm:w-72 h-full bg-white flex flex-col select-none shrink-0 relative">
+    <aside ref={sidebarRef} className="w-full sm:w-72 h-full bg-white flex flex-col select-none shrink-0 relative">
       {/* Header */}
       <div className="p-4 pb-3 flex items-center justify-between border-b border-slate-100">
         <div className="flex items-center gap-2">

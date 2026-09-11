@@ -198,7 +198,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   
   setSelectedLowerId: (id) => {
     const file = get().lowerFiles.find(f => f.id === id);
-    if (file && get().viewMode === 'lower') {
+    if (file) {
       set({ 
         selectedLowerId: id,
         modelStats: {
@@ -316,6 +316,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 
   addBatchSTLs: ({ patientName, upperFiles = [], lowerFiles = [], replaceExisting = true }) => {
+    if (replaceExisting) {
+      get().upperFiles.forEach(f => f.customBufferGeometry?.dispose?.());
+      get().lowerFiles.forEach(f => f.customBufferGeometry?.dispose?.());
+    }
     const currentUpper = replaceExisting ? [] : get().upperFiles;
     const currentLower = replaceExisting ? [] : get().lowerFiles;
 
@@ -353,6 +357,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
   
   deleteSTL: (arch, id) => {
+    const removed = (arch === 'upper' ? get().upperFiles : get().lowerFiles).find(f => f.id === id);
+    removed?.customBufferGeometry?.dispose?.();
+
     if (arch === 'upper') {
       const next = get().upperFiles.filter(f => f.id !== id);
       const nextSelectedId = next.length > 0 ? next[0].id : '';
@@ -396,6 +403,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   deleteAllSTLs: (arch) => {
     if (arch === 'upper') {
+      get().upperFiles.forEach(f => f.customBufferGeometry?.dispose?.());
       const remainingLower = get().lowerFiles;
       set({
         upperFiles: [],
@@ -406,6 +414,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         } : {})
       });
     } else {
+      get().lowerFiles.forEach(f => f.customBufferGeometry?.dispose?.());
       const remainingUpper = get().upperFiles;
       set({
         lowerFiles: [],
