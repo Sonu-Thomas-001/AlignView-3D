@@ -152,6 +152,59 @@ export function sortSTLFilesByStage(files: STLFileInfo[]): STLFileInfo[] {
 }
 
 /**
+ * Computes the vertex centroid and dominant principal axis (via PCA / power iteration
+ * on the covariance matrix) of a freshly-parsed, not-yet-normalized STL geometry.
+ *
+ * This is captured BEFORE `normalizeDentalGeometry` re-centers the mesh for rendering,
+ * so it preserves the arch's real position/orientation in the file's native coordinate
+ * frame. Because rotation is distance- and angle-preserving, Euclidean distance between
+ * two stages' centroids (and the angle between their principal axes) is a valid real
+ * movement estimate even without replaying the later normalization rotations - as long
+ * as every stage of a case was exported by the CAD software in a consistent world frame,
+ * which is standard practice for multi-stage aligner treatment planning exports.
+ */
+export function computeGeometryPose(geometry: THREE.BufferGeometry): { centroid: THREE.Vector3; principalAxis: THREE.Vector3 } {
+  const pos = geometry.attributes.position;
+  const n = pos.count;
+  const centroid = new THREE.Vector3();
+
+  for (let i = 0; i < n; i++) {
+    centroid.x += pos.getX(i);
+    centroid.y += pos.getY(i);
+    centroid.z += pos.getZ(i);
+  }
+  centroid.divideScalar(Math.max(1, n));
+
+  let xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = pos.getX(i) - centroid.x;
+    const dy = pos.getY(i) - centroid.y;
+    const dz = pos.getZ(i) - centroid.z;
+    xx += dx * dx; xy += dx * dy; xz += dx * dz;
+    yy += dy * dy; yz += dy * dz; zz += dz * dz;
+  }
+  xx /= n; xy /= n; xz /= n; yy /= n; yz /= n; zz /= n;
+
+  // Power iteration to find the dominant eigenvector of the symmetric covariance matrix
+  const cov = new THREE.Matrix3().set(
+    xx, xy, xz,
+    xy, yy, yz,
+    xz, yz, zz,
+  );
+  let axis = new THREE.Vector3(1, 1, 1).normalize();
+  for (let i = 0; i < 40; i++) {
+    axis.applyMatrix3(cov);
+    if (axis.lengthSq() < 1e-20) {
+      axis.set(1, 0, 0);
+      break;
+    }
+    axis.normalize();
+  }
+
+  return { centroid, principalAxis: axis };
+}
+
+/**
  * Automatically normalizes imported dental mesh orientation into standard Three.js dental studio coordinates:
  * - X: Transverse / Left-Right (Arch width)
  * - Y: Vertical / Superior-Inferior (Height)

@@ -174,7 +174,25 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     height: 0,
   },
   
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => {
+    const { upperFiles, lowerFiles, selectedUpperId, selectedLowerId } = get();
+    const upperFile = upperFiles.find(f => f.id === selectedUpperId);
+    const lowerFile = lowerFiles.find(f => f.id === selectedLowerId);
+    const activeStatsFile = mode === 'lower' ? (lowerFile || upperFile) : (upperFile || lowerFile);
+
+    set({
+      viewMode: mode,
+      ...(activeStatsFile ? {
+        modelStats: {
+          vertices: activeStatsFile.verticesCount,
+          triangles: activeStatsFile.trianglesCount,
+          width: activeStatsFile.dimensions.width,
+          depth: activeStatsFile.dimensions.depth,
+          height: activeStatsFile.dimensions.height,
+        }
+      } : {})
+    });
+  },
   setRenderMode: (mode) => set({ renderMode: mode }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   
@@ -225,11 +243,21 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     // Auto sync selection to match step if available
     const upperMatch = get().upperFiles.find(f => f.stage === clamped);
     const lowerMatch = get().lowerFiles.find(f => f.stage === clamped);
-    
-    set({ 
+    const activeStatsFile = get().viewMode === 'lower' ? (lowerMatch || upperMatch) : (upperMatch || lowerMatch);
+
+    set({
       currentStep: clamped,
       selectedUpperId: upperMatch ? upperMatch.id : get().selectedUpperId,
       selectedLowerId: lowerMatch ? lowerMatch.id : get().selectedLowerId,
+      ...(activeStatsFile ? {
+        modelStats: {
+          vertices: activeStatsFile.verticesCount,
+          triangles: activeStatsFile.trianglesCount,
+          width: activeStatsFile.dimensions.width,
+          depth: activeStatsFile.dimensions.depth,
+          height: activeStatsFile.dimensions.height,
+        }
+      } : {})
     });
   },
   
@@ -326,10 +354,13 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     const mergedUpper = sortSTLFilesByStage([...currentUpper, ...upperFiles]);
     const mergedLower = sortSTLFilesByStage([...currentLower, ...lowerFiles]);
 
-    // Calculate maximum treatment stage
+    // Calculate maximum treatment stage. Uses the highest stage NUMBER rather than file
+    // count, since a stage can have more than one file (e.g. a "Model" + "Template" pair
+    // both at stage 1) — counting files would otherwise inflate the timeline with a
+    // phantom extra stage that no file actually occupies.
     const maxUpperStage = mergedUpper.reduce((max, f) => Math.max(max, f.stage || 0), 0);
     const maxLowerStage = mergedLower.reduce((max, f) => Math.max(max, f.stage || 0), 0);
-    const calculatedTotalSteps = Math.max(maxUpperStage, maxLowerStage, mergedUpper.length, mergedLower.length, 1);
+    const calculatedTotalSteps = Math.max(maxUpperStage, maxLowerStage, 1);
 
     const firstUpper = mergedUpper[0];
     const firstLower = mergedLower[0];

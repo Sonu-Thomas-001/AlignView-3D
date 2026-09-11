@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
-import { parseSTLFilename, detectBatchPatientName, sortSTLFilesByStage, normalizeDentalGeometry } from '@/utils/stlParser';
+import { parseSTLFilename, detectBatchPatientName, sortSTLFilesByStage, normalizeDentalGeometry, computeGeometryPose } from '@/utils/stlParser';
 import { STLFileInfo } from '@/types/dental';
 
 export const UploadModal: React.FC = () => {
@@ -165,6 +165,7 @@ export const UploadModal: React.FC = () => {
 
         const buffer = await file.arrayBuffer();
         let geometry = loader.parse(buffer);
+        const rawPose = computeGeometryPose(geometry);
         geometry = normalizeDentalGeometry(geometry, resolvedArch);
 
         geometry.computeBoundingBox();
@@ -192,6 +193,8 @@ export const UploadModal: React.FC = () => {
           },
           isTemplate,
           customBufferGeometry: geometry,
+          centroid: { x: rawPose.centroid.x, y: rawPose.centroid.y, z: rawPose.centroid.z },
+          principalAxis: { x: rawPose.principalAxis.x, y: rawPose.principalAxis.y, z: rawPose.principalAxis.z },
         };
 
         if (resolvedArch === 'upper') {

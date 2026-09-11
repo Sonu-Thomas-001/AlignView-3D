@@ -31,11 +31,13 @@ export const TimelinePlayback: React.FC = () => {
     isSafetyPopoverOpen,
     toggleSafetyPopover,
     setSafetyPopoverOpen,
+    upperFiles,
+    lowerFiles,
   } = useViewerStore();
 
   const safetyMetrics = useMemo(() => {
-    return computeStageSafetyMetrics(currentStep, totalSteps);
-  }, [currentStep, totalSteps]);
+    return computeStageSafetyMetrics(upperFiles, lowerFiles, currentStep);
+  }, [upperFiles, lowerFiles, currentStep]);
 
   // Automated playback animation interval timer
   useEffect(() => {
@@ -113,12 +115,16 @@ export const TimelinePlayback: React.FC = () => {
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                   : safetyMetrics.status === 'moderate'
                     ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                    : safetyMetrics.status === 'baseline'
+                      ? 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
               }`}
               title="Click to view clinical stage velocity telemetry"
             >
               {safetyMetrics.status === 'optimal' ? (
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
+              ) : safetyMetrics.status === 'baseline' ? (
+                <Info className="w-3 h-3 text-slate-500" />
               ) : (
                 <AlertTriangle className="w-3 h-3 text-amber-600" />
               )}
@@ -285,6 +291,10 @@ export const TimelinePlayback: React.FC = () => {
             </button>
           </div>
 
+          <p className="text-[10px] text-slate-500 -mt-1 mb-2 leading-snug">
+            Whole-arch centroid shift vs. the previous stage STL — an approximation, not a per-tooth clinical measurement.
+          </p>
+
           <div className="space-y-2.5 text-xs">
             <div className="grid grid-cols-2 gap-2 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
               <div>
@@ -300,8 +310,8 @@ export const TimelinePlayback: React.FC = () => {
             </div>
 
             <div className="flex justify-between items-center px-1">
-              <span className="text-slate-400">Primary Active Tooth:</span>
-              <span className="font-semibold text-blue-300">{safetyMetrics.limitingTooth}</span>
+              <span className="text-slate-400">Dominant Arch Shift:</span>
+              <span className="font-semibold text-blue-300">{safetyMetrics.dominantArch}</span>
             </div>
 
             <div className="p-2 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-200 leading-relaxed">

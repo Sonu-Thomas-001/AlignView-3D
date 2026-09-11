@@ -2,20 +2,24 @@
 
 import React, { useMemo } from 'react';
 import { useViewerStore } from '@/store/useViewerStore';
-import { Sparkles, Activity } from 'lucide-react';
-import { computeStageSafetyMetrics } from '@/utils/movementAnalytics';
+import { Activity } from 'lucide-react';
+import { archMovement } from '@/utils/movementAnalytics';
 
 export const ToothHoverTooltip: React.FC = () => {
-  const { hoveredTooth, currentStep, totalSteps } = useViewerStore();
+  const { hoveredTooth, currentStep, upperFiles, lowerFiles } = useViewerStore();
 
-  const safetyMetrics = useMemo(
-    () => computeStageSafetyMetrics(currentStep, totalSteps),
-    [currentStep, totalSteps]
+  const isUpper = hoveredTooth?.arch === 'upper';
+  const archFiles = isUpper ? upperFiles : lowerFiles;
+
+  const movement = useMemo(
+    () => archMovement(archFiles, currentStep),
+    [archFiles, currentStep]
   );
 
   if (!hoveredTooth) return null;
 
-  const isUpper = hoveredTooth.arch === 'upper';
+  const translationMm = movement ? Number(movement.translationMm.toFixed(2)) : 0;
+  const rotationDeg = movement ? Number(movement.rotationDeg.toFixed(1)) : 0;
 
   return (
     <div
@@ -48,14 +52,14 @@ export const ToothHoverTooltip: React.FC = () => {
           {hoveredTooth.name}
         </p>
 
-        {/* Clinical Movement Telemetry */}
+        {/* Whole-Arch Movement Estimate (not a per-tooth measurement) */}
         <div className="flex items-center justify-between pt-1 text-[10px] text-slate-300">
           <div className="flex items-center gap-1">
             <Activity className="w-3 h-3 text-blue-400" />
-            <span>Stage {currentStep} Velocity</span>
+            <span>{isUpper ? 'Upper' : 'Lower'} Arch Shift</span>
           </div>
           <span className="font-bold text-emerald-400 tabular-nums">
-            {safetyMetrics.maxTranslationMm} mm / {safetyMetrics.maxRotationDeg}°
+            {movement ? `${translationMm} mm / ${rotationDeg}°` : '—'}
           </span>
         </div>
       </div>
