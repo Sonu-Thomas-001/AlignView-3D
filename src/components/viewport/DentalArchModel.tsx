@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ThreeEvent } from '@react-three/fiber';
 import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
-import { normalizeDentalGeometry } from '@/utils/stlParser';
+import { normalizeDentalGeometry, pickFileForStage } from '@/utils/stlParser';
 import { computeOcclusionOffset } from '@/utils/occlusion';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 
@@ -15,7 +15,12 @@ interface DentalArchModelProps {
   totalStages?: number;
   clippingPlane?: THREE.Plane | null;
   onPointClick?: (point: THREE.Vector3) => void;
-  isSecondarySplit?: boolean;
+  /**
+   * Resolve the displayed mesh from the `stage` prop instead of the sidebar
+   * selection. Split view uses this so its two panes can show two different
+   * stages of the same case simultaneously.
+   */
+  resolveByStage?: boolean;
 }
 
 export const DentalArchModel: React.FC<DentalArchModelProps> = ({
@@ -23,7 +28,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   totalStages = 32,
   clippingPlane = null,
   onPointClick,
-  isSecondarySplit = false,
+  resolveByStage = false,
 }) => {
   const {
     viewMode,
@@ -41,9 +46,20 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   const [activeUpperGeom, setActiveUpperGeom] = useState<THREE.BufferGeometry | null>(null);
   const [activeLowerGeom, setActiveLowerGeom] = useState<THREE.BufferGeometry | null>(null);
 
-  // Active files
-  const selectedUpperFile = useMemo(() => upperFiles.find(f => f.id === selectedUpperId) || upperFiles[0], [upperFiles, selectedUpperId]);
-  const selectedLowerFile = useMemo(() => lowerFiles.find(f => f.id === selectedLowerId) || lowerFiles[0], [lowerFiles, selectedLowerId]);
+  // Active files. In split view each pane resolves its own stage from geometry, so the
+  // "Initial" pane keeps showing stage 1 while the sidebar selection drives the other.
+  const selectedUpperFile = useMemo(
+    () => (resolveByStage
+      ? pickFileForStage(upperFiles, stage)
+      : upperFiles.find(f => f.id === selectedUpperId) || upperFiles[0]),
+    [resolveByStage, stage, upperFiles, selectedUpperId],
+  );
+  const selectedLowerFile = useMemo(
+    () => (resolveByStage
+      ? pickFileForStage(lowerFiles, stage)
+      : lowerFiles.find(f => f.id === selectedLowerId) || lowerFiles[0]),
+    [resolveByStage, stage, lowerFiles, selectedLowerId],
+  );
 
   // Load and cache Upper STL geometry
   useEffect(() => {
@@ -152,8 +168,10 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     setHoveredTooth(null);
   };
 
-  const showUpper = viewMode === 'both' || viewMode === 'upper' || viewMode === 'split' || isSecondarySplit;
-  const showLower = (viewMode === 'both' || viewMode === 'lower' || viewMode === 'split') && !isSecondarySplit;
+  // Split view shows the full bite in both panes so the two stages are directly
+  // comparable; only the explicit Upper-only / Lower-only modes hide an arch.
+  const showUpper = viewMode !== 'lower';
+  const showLower = viewMode !== 'upper';
 
   const hasUpper = upperFiles.length > 0;
   const hasLower = lowerFiles.length > 0;
@@ -219,7 +237,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     }
   };
 
-  const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
+  const isBothVisible = showUpper && showLower && hasUpper && hasLower;
 
   // Real cusp-to-fossa occlusion registration: drop the lower arch into contact
   // with the upper (computeOcclusionOffset), then recenter the combined pair

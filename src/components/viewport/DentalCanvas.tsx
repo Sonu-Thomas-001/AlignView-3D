@@ -8,7 +8,8 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { DentalArchModel } from './DentalArchModel';
 import { ToothHoverTooltip } from './ToothHoverTooltip';
-import { Upload } from 'lucide-react';
+import { maxStageOf } from '@/utils/stlParser';
+import { Upload, PauseCircle } from 'lucide-react';
 
 // Camera controller with smooth tweening
 const CameraController: React.FC = () => {
@@ -111,25 +112,57 @@ const MeasurementLines: React.FC = () => {
   );
 };
 
-// Screenshot capture worker
-const ScreenshotWorker: React.FC = () => {
-  const { gl } = useThree();
-  const { screenshotTriggerCount } = useViewerStore();
+/**
+ * Captures every WebGL canvas inside the viewport and composites them side by side
+ * into a single PNG. Reading the canvases from the DOM (rather than from inside one
+ * `Canvas` via `useThree`) is what lets Split View export both stages in one image;
+ * every canvas is created with `preserveDrawingBuffer` so the backing pixels are
+ * still readable after the frame has been presented.
+ */
+function useViewportScreenshot(
+  hostRef: React.RefObject<HTMLDivElement | null>,
+  backgroundColor: string,
+  fileNameHint: string,
+) {
+  const screenshotTriggerCount = useViewerStore((s) => s.screenshotTriggerCount);
   const prevCount = useRef(screenshotTriggerCount);
 
   useEffect(() => {
-    if (screenshotTriggerCount > 0 && screenshotTriggerCount !== prevCount.current) {
-      prevCount.current = screenshotTriggerCount;
-      const dataUrl = gl.domElement.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `alignview_3d_${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
-    }
-  }, [screenshotTriggerCount, gl]);
+    if (screenshotTriggerCount === 0 || screenshotTriggerCount === prevCount.current) return;
+    prevCount.current = screenshotTriggerCount;
 
-  return null;
-};
+    const host = hostRef.current;
+    if (!host) return;
+
+    const canvases = Array.from(host.querySelectorAll('canvas')) as HTMLCanvasElement[];
+    const usable = canvases.filter((c) => c.width > 0 && c.height > 0);
+    if (usable.length === 0) return;
+
+    const gap = usable.length > 1 ? 20 : 0;
+    const width = usable.reduce((sum, c) => sum + c.width, 0) + gap * (usable.length - 1);
+    const height = Math.max(...usable.map((c) => c.height));
+
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, width, height);
+
+    let x = 0;
+    for (const canvas of usable) {
+      ctx.drawImage(canvas, x, 0);
+      x += canvas.width + gap;
+    }
+
+    const link = document.createElement('a');
+    link.download = `${fileNameHint}.png`;
+    link.href = out.toDataURL('image/png');
+    link.click();
+  }, [screenshotTriggerCount, hostRef, backgroundColor, fileNameHint]);
+}
 
 // Studio Reflective Floor adaptive to Dark & Light theme
 const StudioReflectiveFloor: React.FC<{ isDark: boolean }> = ({ isDark }) => {
@@ -179,10 +212,39 @@ export const DentalCanvas: React.FC = () => {
     upperFiles,
     lowerFiles,
     openUploadModal,
+    patientName,
   } = useViewerStore();
 
   const isDark = studioTheme === 'dark';
   const totalFiles = upperFiles.length + lowerFiles.length;
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  // Arches rarely have the same stage count (the sample case ships 25 upper against 7
+  // lower), so past the shorter arch's last stage it holds its final position. Say so
+  // rather than letting it look like that arch simply stopped responding.
+  const upperMaxStage = useMemo(() => maxStageOf(upperFiles), [upperFiles]);
+  const lowerMaxStage = useMemo(() => maxStageOf(lowerFiles), [lowerFiles]);
+  const heldArches = useMemo(() => {
+    const held: string[] = [];
+    if (upperFiles.length > 0 && currentStep > upperMaxStage && viewMode !== 'lower') {
+      held.push(`Upper held at stage ${upperMaxStage}`);
+    }
+    if (lowerFiles.length > 0 && currentStep > lowerMaxStage && viewMode !== 'upper') {
+      held.push(`Lower held at stage ${lowerMaxStage}`);
+    }
+    return held;
+  }, [upperFiles.length, lowerFiles.length, currentStep, upperMaxStage, lowerMaxStage, viewMode]);
+
+  const patientSlug = useMemo(() => {
+    const slug = (patientName || 'case').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return slug || 'case';
+  }, [patientName]);
+
+  useViewportScreenshot(
+    hostRef,
+    isDark ? '#0B0F19' : '#D8E0ED',
+    `alignview-${patientSlug}-stage-${currentStep}`,
+  );
 
   // Dynamic clipping plane for sectioning tool
   const clippingPlane = useMemo(() => {
@@ -207,7 +269,7 @@ export const DentalCanvas: React.FC = () => {
   const isSplit = viewMode === 'split';
 
   return (
-    <div className={`w-full h-full relative overflow-hidden transition-colors duration-300 ${
+    <div ref={hostRef} className={`w-full h-full relative overflow-hidden transition-colors duration-300 ${
       isDark 
         ? 'bg-gradient-to-b from-[#0F172A] via-[#0B0F19] to-[#080C14]' 
         : 'bg-gradient-to-b from-[#D2DAE8] via-[#DEE5F2] to-[#CBD5E6]'
@@ -236,7 +298,7 @@ export const DentalCanvas: React.FC = () => {
               <directionalLight position={[-18, 12, 20]} intensity={isDark ? 0.9 : 0.8} />
               <directionalLight position={[0, 32, -22]} intensity={isDark ? 1.1 : 0.7} color={isDark ? "#93C5FD" : "#CAD8F0"} />
               
-              <DentalArchModel stage={1} totalStages={totalSteps} isSecondarySplit />
+              <DentalArchModel stage={1} totalStages={totalSteps} resolveByStage />
               <StudioReflectiveFloor isDark={isDark} />
               <CameraController />
             </Canvas>
@@ -262,7 +324,7 @@ export const DentalCanvas: React.FC = () => {
               <directionalLight position={[-18, 12, 20]} intensity={isDark ? 0.9 : 0.8} />
               <directionalLight position={[0, 32, -22]} intensity={isDark ? 1.1 : 0.7} color={isDark ? "#93C5FD" : "#CAD8F0"} />
               
-              <DentalArchModel stage={currentStep} totalStages={totalSteps} />
+              <DentalArchModel stage={currentStep} totalStages={totalSteps} resolveByStage />
               <StudioReflectiveFloor isDark={isDark} />
               <CameraController />
             </Canvas>
@@ -321,10 +383,21 @@ export const DentalCanvas: React.FC = () => {
 
           {/* Camera Controller with smooth snaps */}
           <CameraController />
-
-          {/* Screenshot capture worker */}
-          <ScreenshotWorker />
         </Canvas>
+      )}
+
+      {/* Arch-sequence-exhausted indicator */}
+      {totalFiles > 0 && heldArches.length > 0 && (
+        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border text-[10px] sm:text-[11px] font-semibold shadow-sm ${
+            isDark
+              ? 'bg-slate-900/85 border-amber-600/40 text-amber-300'
+              : 'bg-white/90 border-amber-300 text-amber-700'
+          }`}>
+            <PauseCircle className="w-3 h-3 shrink-0" />
+            <span>{heldArches.join(' • ')}</span>
+          </div>
+        </div>
       )}
 
       {/* Empty State / Upload Invitation Overlay */}

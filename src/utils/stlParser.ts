@@ -152,6 +152,42 @@ export function sortSTLFilesByStage(files: STLFileInfo[]): STLFileInfo[] {
 }
 
 /**
+ * Resolves which file in an arch sequence should be displayed for a given treatment
+ * stage. Prefers an exact stage match (favouring the "Model" file over a "Template"
+ * file at the same stage), otherwise falls back to the nearest earlier stage, and
+ * finally to the last file available.
+ *
+ * The fallback matters because the two arches of a real case rarely have the same
+ * number of stages - the sample case ships 25 upper stages against 7 lower ones - so
+ * the shorter arch has to hold its final position rather than disappear.
+ */
+export function pickFileForStage(files: STLFileInfo[], stage: number): STLFileInfo | undefined {
+  if (files.length === 0) return undefined;
+
+  const exact = files.filter(f => f.stage === stage);
+  if (exact.length > 0) {
+    return exact.find(f => !f.isTemplate) ?? exact[0];
+  }
+
+  const earlier = files
+    .filter(f => (f.stage ?? 0) < stage)
+    .sort((a, b) => (b.stage ?? 0) - (a.stage ?? 0));
+  if (earlier.length > 0) {
+    const bestStage = earlier[0].stage;
+    const atBestStage = earlier.filter(f => f.stage === bestStage);
+    return atBestStage.find(f => !f.isTemplate) ?? atBestStage[0];
+  }
+
+  const sorted = sortSTLFilesByStage(files);
+  return sorted[0];
+}
+
+/** Highest stage number present in an arch sequence (0 when the arch is empty). */
+export function maxStageOf(files: STLFileInfo[]): number {
+  return files.reduce((max, f) => Math.max(max, f.stage ?? 0), 0);
+}
+
+/**
  * Computes the vertex centroid and dominant principal axis (via PCA / power iteration
  * on the covariance matrix) of a freshly-parsed, not-yet-normalized STL geometry.
  *

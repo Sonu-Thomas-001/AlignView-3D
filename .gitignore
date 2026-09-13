@@ -45,3 +45,6 @@ __pycache__/
 *.pyc
 
 
+
+# Local planning notes (not for the repo)
+PROJECT-PLAN.local.md
