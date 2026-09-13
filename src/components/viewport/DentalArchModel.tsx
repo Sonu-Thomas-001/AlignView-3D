@@ -7,6 +7,7 @@ import { computeDentalNormalization, applyDentalNormalization, pickFileForStage 
 import { computeOcclusionOffset } from '@/utils/occlusion';
 import { segmentToothAndGum } from '@/utils/toothGumSegmentation';
 import { computeMovementColors } from '@/utils/movementAnalytics';
+import { ensureBoundsTree } from '@/utils/meshBvh';
 import { STLFileInfo } from '@/types/dental';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 
@@ -211,8 +212,23 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     };
   }, [selectedLowerFile, selectedLowerFile?.customBufferGeometry, lowerFrameKey]);
 
+  /**
+   * Builds the picking acceleration structure for a stage the moment it is first touched.
+   *
+   * Not on load, and not on stage change: playback steps through stages several times a
+   * second, and building a tree per stage would stall it for a structure nobody looks at.
+   * The first event over a mesh still pays for an unaccelerated ray, because the raycast
+   * that produced the event has already happened by the time this runs. Every event after
+   * it is accelerated, which is the case that matters, since a pointer produces a stream
+   * of them.
+   */
+  const warmPicking = (geometry: THREE.BufferGeometry | null) => {
+    if (geometry) ensureBoundsTree(geometry);
+  };
+
   // Handle FDI Tooth Hover Tooltip via 3D spatial dental mapping
   const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
+    warmPicking(arch === 'upper' ? activeUpperGeom : activeLowerGeom);
     if (activeTool === 'measure') return;
     e.stopPropagation();
 
@@ -435,6 +451,8 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   }, [archMaterials]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    warmPicking(activeUpperGeom);
+    warmPicking(activeLowerGeom);
     if (activeTool === 'measure') {
       e.stopPropagation();
       if (onPointClick && e.point) {

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint, HoveredTooth, BiteAdjustment, BiteRegistration } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
 import { clearMovementCache } from '@/utils/movementAnalytics';
+import { disposeAllBoundsTrees, disposeBoundsTreeFor } from '@/utils/meshBvh';
 
 const INITIAL_UPPER_FILES: STLFileInfo[] = [];
 const INITIAL_LOWER_FILES: STLFileInfo[] = [];
@@ -404,6 +405,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // Measurements and heat-map colours are memoised per file pair. The old case's
       // entries can never be hit again once its files are gone, so they are pure leak.
       clearMovementCache();
+      disposeAllBoundsTrees();
       // A different case has its own occlusion. Carrying the previous case's manual nudge
       // into it would misregister the new bite without saying so.
       set({ biteAdjust: { verticalMm: 0, sagittalMm: 0, pitchDeg: 0 }, biteRegistration: null });
@@ -449,6 +451,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   
   deleteSTL: (arch, id) => {
     const removed = (arch === 'upper' ? get().upperFiles : get().lowerFiles).find(f => f.id === id);
+    disposeBoundsTreeFor(removed?.customBufferGeometry);
     removed?.customBufferGeometry?.dispose?.();
     if (removed) clearMovementCache(removed.id);
 
@@ -496,6 +499,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   deleteAllSTLs: (arch) => {
     if (arch === 'upper') {
       get().upperFiles.forEach(f => {
+        disposeBoundsTreeFor(f.customBufferGeometry);
         f.customBufferGeometry?.dispose?.();
         clearMovementCache(f.id);
       });
@@ -510,6 +514,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       });
     } else {
       get().lowerFiles.forEach(f => {
+        disposeBoundsTreeFor(f.customBufferGeometry);
         f.customBufferGeometry?.dispose?.();
         clearMovementCache(f.id);
       });

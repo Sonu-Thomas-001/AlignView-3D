@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { MeshBVH } from 'three-mesh-bvh';
+import type { MeshBVH } from 'three-mesh-bvh';
+import { ensureBoundsTree } from './meshBvh';
 import { STLFileInfo } from '@/types/dental';
 
 /**
@@ -39,15 +40,10 @@ const MOVEMENT_FLOOR_MM = 0.05;
  * roughly 100 ms, so it is cached against the geometry object and reused for every
  * comparison that stage takes part in, as well as by hover picking.
  */
-const bvhCache = new WeakMap<THREE.BufferGeometry, MeshBVH>();
+// Trees live in meshBvh so picking and measurement share one per geometry.
 
 function bvhFor(geometry: THREE.BufferGeometry): MeshBVH {
-  let bvh = bvhCache.get(geometry);
-  if (!bvh) {
-    bvh = new MeshBVH(geometry, { maxLeafTris: 12 });
-    bvhCache.set(geometry, bvh);
-  }
-  return bvh;
+  return ensureBoundsTree(geometry);
 }
 
 // Reused across queries; nearest-surface lookups run hundreds of thousands of times

@@ -434,11 +434,31 @@ export function estimateGingivalMargin(
  * index buffer. An index would cost another 3.5 MB per stage on these meshes, and a
  * full case is held in memory at once; permuting is memory-neutral.
  */
+/**
+ * Drops a bounding volume hierarchy built over this geometry, if there is one.
+ *
+ * Reordering triangles leaves a tree pointing at the wrong ones, which would make every
+ * pick and every displacement reading silently wrong rather than merely slow. Reached
+ * through the prototype so this module does not have to depend on the BVH helper, and
+ * guarded because the prototype patch is only installed on the client.
+ */
+function invalidateBoundsTree(geometry: THREE.BufferGeometry): void {
+  const withTree = geometry as THREE.BufferGeometry & {
+    boundsTree?: unknown;
+    disposeBoundsTree?: () => void;
+  };
+  if (withTree.boundsTree && typeof withTree.disposeBoundsTree === 'function') {
+    withTree.disposeBoundsTree();
+  }
+}
+
 function reorderTrianglesToothFirst(
   geometry: THREE.BufferGeometry,
   isTooth: Uint8Array,
   triangleCount: number,
 ): number {
+  invalidateBoundsTree(geometry);
+
   const order = new Uint32Array(triangleCount);
   let write = 0;
   for (let t = 0; t < triangleCount; t++) {
