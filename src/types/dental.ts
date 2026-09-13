@@ -2,7 +2,27 @@ import type { BufferGeometry } from 'three';
 
 export type ViewMode = 'both' | 'upper' | 'lower' | 'split';
 export type RenderMode = 'shaded' | 'wireframe' | 'solid' | 'xray' | 'movement';
-export type ActiveTool = 'move' | 'rotate' | 'zoom' | 'pan' | 'measure' | 'section';
+export type ActiveTool = 'move' | 'rotate' | 'zoom' | 'pan' | 'measure' | 'section' | 'bite';
+
+/**
+ * Manual correction applied on top of the automatic bite registration, which is a fit to
+ * the two arch surfaces rather than a recorded bite and can settle a millimetre or two
+ * out on an unusual occlusion.
+ */
+export interface BiteAdjustment {
+  /** Positive opens the bite by lowering the lower arch, in mm. */
+  verticalMm: number;
+  /** Positive protrudes the lower arch, which increases the overjet, in mm. */
+  sagittalMm: number;
+  /** Positive tips the front of the lower arch upward, in degrees. */
+  pitchDeg: number;
+}
+
+/** How well the automatic registration fitted, for labelling the estimate honestly. */
+export interface BiteRegistration {
+  contactCells: number;
+  residualStdMm: number;
+}
 
 export interface Vec3Tuple {
   x: number;

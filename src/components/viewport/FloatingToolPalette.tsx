@@ -7,7 +7,8 @@ import {
   Search, 
   Hand, 
   Ruler, 
-  Layers 
+  Layers,
+  Smile
 } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { ActiveTool } from '@/types/dental';
@@ -25,6 +26,7 @@ const TOOLS: ToolItem[] = [
   { id: 'pan', label: 'Pan', icon: <Hand className="w-3.5 sm:w-4 h-3.5 sm:h-4" /> },
   { id: 'measure', label: 'Measure', icon: <Ruler className="w-3.5 sm:w-4 h-3.5 sm:h-4" /> },
   { id: 'section', label: 'Section', icon: <Layers className="w-3.5 sm:w-4 h-3.5 sm:h-4" /> },
+  { id: 'bite', label: 'Bite', icon: <Smile className="w-3.5 sm:w-4 h-3.5 sm:h-4" /> },
 ];
 
 export const FloatingToolPalette: React.FC = () => {

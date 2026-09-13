@@ -11,6 +11,7 @@ import { ViewModePill } from '@/components/viewport/ViewModePill';
 import { ViewCubeGizmo } from '@/components/viewport/ViewCubeGizmo';
 import { RenderModePill } from '@/components/viewport/RenderModePill';
 import { MovementLegend } from '@/components/viewport/MovementLegend';
+import { BiteAdjustPanel } from '@/components/viewport/BiteAdjustPanel';
 import { ModelStatsCard } from '@/components/viewport/ModelStatsCard';
 import { SectionSlider } from '@/components/viewport/SectionSlider';
 import { MeasurementOverlay } from '@/components/viewport/MeasurementOverlay';
@@ -65,6 +66,7 @@ export default function STLStudioPage() {
 
             {/* Interactive Tool Floating Panels */}
             <SectionSlider />
+            <BiteAdjustPanel />
             <MeasurementOverlay />
 
             {/* Bottom Left Model Telemetry Card (Vertices, Triangles, Size) */}

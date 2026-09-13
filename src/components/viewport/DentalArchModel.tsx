@@ -89,6 +89,8 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     gumColor,
     tintGums,
     setMovementScale,
+    biteAdjust,
+    setBiteRegistration,
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
@@ -452,6 +454,17 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     return computeOcclusionOffset(activeUpperGeom, activeLowerGeom);
   }, [activeUpperGeom, activeLowerGeom]);
 
+  // Let the adjustment panel say how well the automatic fit came out, so a provider can
+  // tell a clean registration from one worth correcting by hand.
+  useEffect(() => {
+    setBiteRegistration(occlusionOffset
+      ? {
+        contactCells: occlusionOffset.contactCells,
+        residualStdMm: occlusionOffset.residualStdMm,
+      }
+      : null);
+  }, [occlusionOffset, setBiteRegistration]);
+
   const { upperPosY, lowerPosX, lowerPosY, lowerPosZ, lowerRotation } = useMemo(() => {
     if (!isBothVisible || !occlusionOffset || !activeUpperGeom || !activeLowerGeom) {
       return { upperPosY: 0, lowerPosX: 0, lowerPosY: 0, lowerPosZ: 0, lowerRotation: [0, 0, 0] as [number, number, number] };
@@ -467,17 +480,28 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     const combinedMaxY = Math.max(uBox.max.y, lBox.max.y + dy);
     const recenter = (combinedMinY + combinedMaxY) / 2;
 
+    // Manual correction on top of the fit. Sign convention follows what the slider says
+    // it does rather than the axis: opening the bite lowers the lower arch, so positive
+    // vertical is negative Y. The framing is recentred on the automatic fit and not on
+    // the corrected pose, so nudging the bite moves the lower arch against the upper
+    // instead of sliding the whole model through the camera's view.
+    const { verticalMm, sagittalMm, pitchDeg } = biteAdjust;
+
     return {
       upperPosY: -recenter,
       lowerPosX: dx,
-      lowerPosY: dy - recenter,
-      lowerPosZ: dz,
+      lowerPosY: dy - recenter - verticalMm,
+      lowerPosZ: dz + sagittalMm,
       // Applied as rotation="[X, Y, Z]" with R3F's default 'XYZ' Euler order, which
       // composes as Rz*Rx*v - matching the rotateX-then-rotateZ order the offset's
       // pitch/roll were derived against in computeOcclusionOffset.
-      lowerRotation: [pitchRad, 0, rollRad] as [number, number, number],
+      lowerRotation: [
+        pitchRad + THREE.MathUtils.degToRad(pitchDeg),
+        0,
+        rollRad,
+      ] as [number, number, number],
     };
-  }, [isBothVisible, occlusionOffset, activeUpperGeom, activeLowerGeom]);
+  }, [isBothVisible, occlusionOffset, activeUpperGeom, activeLowerGeom, biteAdjust]);
 
   return (
     <group ref={groupRef} onPointerDown={handlePointerDown}>

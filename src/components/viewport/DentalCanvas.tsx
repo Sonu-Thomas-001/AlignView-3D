@@ -9,6 +9,8 @@ import { useViewerStore } from '@/store/useViewerStore';
 import { DentalArchModel } from './DentalArchModel';
 import { ToothHoverTooltip } from './ToothHoverTooltip';
 import { maxStageOf } from '@/utils/stlParser';
+import { MOVEMENT_LEGEND } from '@/utils/movementAnalytics';
+import type { RenderMode } from '@/types/dental';
 import { Upload, PauseCircle } from 'lucide-react';
 
 // Camera controller with smooth tweening
@@ -113,11 +115,110 @@ const MeasurementLines: React.FC = () => {
 };
 
 /**
+ * Draws the caption strip along the bottom of an exported image.
+ *
+ * The export is the thing a provider actually sends to a patient or a referring doctor,
+ * and it leaves the app: nobody looking at it can hover a tooth or read the sidebar. A
+ * bare render of an arch does not say whose case it is, which stage it is, what the
+ * colours mean, or that the bite is a fit rather than a recorded registration. Every one
+ * of those has to travel with the picture or the picture overstates what it shows.
+ */
+function drawExportCaption(
+  ctx: CanvasRenderingContext2D,
+  options: {
+    width: number;
+    top: number;
+    height: number;
+    scale: number;
+    isDark: boolean;
+    patientName: string;
+    stage: number;
+    totalStages: number;
+    renderMode: RenderMode;
+    movementScaleMm: number | null;
+    movementFromStage: number | null;
+    biteAdjusted: boolean;
+    hasBite: boolean;
+  },
+): void {
+  const {
+    width, top, height, scale, isDark, patientName, stage, totalStages,
+    renderMode, movementScaleMm, movementFromStage, biteAdjusted, hasBite,
+  } = options;
+
+  const ink = isDark ? '#F1F5F9' : '#0F172A';
+  const faded = isDark ? '#94A3B8' : '#64748B';
+  const pad = 18 * scale;
+
+  ctx.fillStyle = isDark ? '#0B1220' : '#F8FAFC';
+  ctx.fillRect(0, top, width, height);
+  ctx.fillStyle = isDark ? '#1E293B' : '#E2E8F0';
+  ctx.fillRect(0, top, width, Math.max(1, scale));
+
+  // Left: whose case, and which stage.
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = ink;
+  ctx.font = `600 ${15 * scale}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  ctx.fillText(patientName || 'Unnamed case', pad, top + 24 * scale);
+
+  ctx.fillStyle = faded;
+  ctx.font = `${12 * scale}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const stageLine = `Stage ${stage} of ${totalStages}`;
+  const biteLine = !hasBite
+    ? 'Single arch'
+    : biteAdjusted
+      ? 'Bite: estimated, then adjusted by hand'
+      : 'Bite: estimated by surface fit, not a recorded registration';
+  ctx.fillText(`${stageLine}  |  ${biteLine}`, pad, top + 43 * scale);
+
+  // Right: the colour key, but only when the colours mean something.
+  if (renderMode === 'movement' && movementScaleMm !== null && movementScaleMm > 0) {
+    const barWidth = Math.min(260 * scale, width * 0.3);
+    const barHeight = 9 * scale;
+    const barX = width - pad - barWidth;
+    const barY = top + 18 * scale;
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = ink;
+    ctx.font = `600 ${12 * scale}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.fillText(
+      `Crown movement vs stage ${movementFromStage ?? 1}`,
+      width - pad,
+      top + 13 * scale,
+    );
+
+    // The first legend entry is the flat grey for surfaces that did not move, a sentinel
+    // rather than the bottom of the ramp, so it is drawn as its own swatch.
+    const swatch = 14 * scale;
+    ctx.fillStyle = MOVEMENT_LEGEND[0].color;
+    ctx.fillRect(barX - swatch - 6 * scale, barY, swatch, barHeight);
+
+    const ramp = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
+    const stops = MOVEMENT_LEGEND.slice(1);
+    stops.forEach((stop, i) => ramp.addColorStop(i / (stops.length - 1), stop.color));
+    ctx.fillStyle = ramp;
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    ctx.fillStyle = faded;
+    ctx.font = `${11 * scale}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText('Unchanged', barX - swatch - 6 * scale, barY + barHeight + 14 * scale);
+    ctx.textAlign = 'right';
+    ctx.fillText(
+      `${movementScaleMm.toFixed(2)} mm or more`,
+      barX + barWidth,
+      barY + barHeight + 14 * scale,
+    );
+  }
+}
+
+/**
  * Captures every WebGL canvas inside the viewport and composites them side by side
- * into a single PNG. Reading the canvases from the DOM (rather than from inside one
- * `Canvas` via `useThree`) is what lets Split View export both stages in one image;
- * every canvas is created with `preserveDrawingBuffer` so the backing pixels are
- * still readable after the frame has been presented.
+ * into a single PNG, with a caption strip along the bottom. Reading the canvases from
+ * the DOM (rather than from inside one `Canvas` via `useThree`) is what lets Split View
+ * export both stages in one image; every canvas is created with `preserveDrawingBuffer`
+ * so the backing pixels are still readable after the frame has been presented.
  */
 function useViewportScreenshot(
   hostRef: React.RefObject<HTMLDivElement | null>,
@@ -125,6 +226,15 @@ function useViewportScreenshot(
   fileNameHint: string,
 ) {
   const screenshotTriggerCount = useViewerStore((s) => s.screenshotTriggerCount);
+  const patientName = useViewerStore((s) => s.patientName);
+  const currentStep = useViewerStore((s) => s.currentStep);
+  const totalSteps = useViewerStore((s) => s.totalSteps);
+  const renderMode = useViewerStore((s) => s.renderMode);
+  const movementScaleMm = useViewerStore((s) => s.movementScaleMm);
+  const movementFromStage = useViewerStore((s) => s.movementFromStage);
+  const biteAdjust = useViewerStore((s) => s.biteAdjust);
+  const biteRegistration = useViewerStore((s) => s.biteRegistration);
+  const studioTheme = useViewerStore((s) => s.studioTheme);
   const prevCount = useRef(screenshotTriggerCount);
 
   useEffect(() => {
@@ -142,9 +252,15 @@ function useViewportScreenshot(
     const width = usable.reduce((sum, c) => sum + c.width, 0) + gap * (usable.length - 1);
     const height = Math.max(...usable.map((c) => c.height));
 
+    // The canvases are already at device pixel ratio, so the caption is sized from the
+    // exported width rather than in CSS pixels; otherwise it comes out as a hairline on a
+    // high-density display.
+    const captionScale = Math.max(1, width / 1400);
+    const captionHeight = Math.round(58 * captionScale);
+
     const out = document.createElement('canvas');
     out.width = width;
-    out.height = height;
+    out.height = height + captionHeight;
     const ctx = out.getContext('2d');
     if (!ctx) return;
 
@@ -157,11 +273,42 @@ function useViewportScreenshot(
       x += canvas.width + gap;
     }
 
+    drawExportCaption(ctx, {
+      width,
+      top: height,
+      height: captionHeight,
+      scale: captionScale,
+      isDark: studioTheme === 'dark',
+      patientName,
+      stage: currentStep,
+      totalStages: totalSteps,
+      renderMode,
+      movementScaleMm,
+      movementFromStage,
+      biteAdjusted:
+        biteAdjust.verticalMm !== 0 || biteAdjust.sagittalMm !== 0 || biteAdjust.pitchDeg !== 0,
+      hasBite: biteRegistration !== null,
+    });
+
     const link = document.createElement('a');
     link.download = `${fileNameHint}.png`;
     link.href = out.toDataURL('image/png');
     link.click();
-  }, [screenshotTriggerCount, hostRef, backgroundColor, fileNameHint]);
+  }, [
+    screenshotTriggerCount,
+    hostRef,
+    backgroundColor,
+    fileNameHint,
+    patientName,
+    currentStep,
+    totalSteps,
+    renderMode,
+    movementScaleMm,
+    movementFromStage,
+    biteAdjust,
+    biteRegistration,
+    studioTheme,
+  ]);
 }
 
 // Studio Reflective Floor adaptive to Dark & Light theme

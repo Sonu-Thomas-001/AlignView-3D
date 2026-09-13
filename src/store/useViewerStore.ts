@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint, HoveredTooth } from '@/types/dental';
+import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint, HoveredTooth, BiteAdjustment, BiteRegistration } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
 import { clearMovementCache } from '@/utils/movementAnalytics';
 
@@ -97,6 +97,18 @@ interface ViewerState {
   movementFromStage: number | null;
   setMovementScale: (scaleMm: number | null, fromStage: number | null) => void;
 
+  /**
+   * Manual bite correction, applied on top of the automatic registration. Held here
+   * rather than derived per arch because it describes the pair, and both the viewport and
+   * the adjustment panel need to agree on it.
+   */
+  biteAdjust: BiteAdjustment;
+  setBiteAdjust: (patch: Partial<BiteAdjustment>) => void;
+  resetBiteAdjust: () => void;
+  /** Fit quality of the automatic registration, published by the viewport. */
+  biteRegistration: BiteRegistration | null;
+  setBiteRegistration: (registration: BiteRegistration | null) => void;
+
   // Actions
   setViewMode: (mode: ViewMode) => void;
   setRenderMode: (mode: RenderMode) => void;
@@ -143,6 +155,16 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setGumColor: (color) => set({ gumColor: color }),
   tintGums: true,
   setTintGums: (on) => set({ tintGums: on }),
+
+  biteAdjust: { verticalMm: 0, sagittalMm: 0, pitchDeg: 0 },
+  setBiteAdjust: (patch) => set((s) => ({ biteAdjust: { ...s.biteAdjust, ...patch } })),
+  resetBiteAdjust: () => set({ biteAdjust: { verticalMm: 0, sagittalMm: 0, pitchDeg: 0 } }),
+  biteRegistration: null,
+  setBiteRegistration: (registration) =>
+    set((s) => (s.biteRegistration?.contactCells === registration?.contactCells
+      && s.biteRegistration?.residualStdMm === registration?.residualStdMm
+      ? s
+      : { biteRegistration: registration })),
 
   movementScaleMm: null,
   movementFromStage: null,
@@ -382,6 +404,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // Measurements and heat-map colours are memoised per file pair. The old case's
       // entries can never be hit again once its files are gone, so they are pure leak.
       clearMovementCache();
+      // A different case has its own occlusion. Carrying the previous case's manual nudge
+      // into it would misregister the new bite without saying so.
+      set({ biteAdjust: { verticalMm: 0, sagittalMm: 0, pitchDeg: 0 }, biteRegistration: null });
     }
     const currentUpper = replaceExisting ? [] : get().upperFiles;
     const currentLower = replaceExisting ? [] : get().lowerFiles;
