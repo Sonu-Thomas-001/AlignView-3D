@@ -13,10 +13,12 @@ import type { StlImportRequest, StlImportResponse } from '@/workers/stlImport.wo
  * on several cores at once, which matters because thirty-plus stages is the normal size and
  * each one is close to a second of arithmetic.
  *
- * The fallback is not defensive padding. A worker that fails to construct or whose module
- * fails to load is a plausible outcome of a bundler change, a stricter Content Security
- * Policy, or an embedded webview, and none of those should turn into "this product cannot
- * open a case". When it happens the session degrades to this thread and finishes the import.
+ * The fallback is not defensive padding. A worker that fails to construct, whose module
+ * never loads, or that simply stops answering is a plausible outcome of a bundler change, a
+ * stricter Content Security Policy, or an embedded webview, and none of those should turn
+ * into "this product cannot open a case". Every path here ends with the import finishing on
+ * this thread rather than hanging, because a progress bar frozen at 1/34 with no error is
+ * the worst of the available failures: the provider waits, then reloads, and has no idea why.
  */
 
 /**
@@ -29,6 +31,25 @@ import type { StlImportRequest, StlImportResponse } from '@/workers/stlImport.wo
  */
 const MAX_CONCURRENCY = 3;
 
+/**
+ * How long to wait for a worker to report that it is listening.
+ *
+ * Generous because in development the worker pulls three.js and three-stdlib as separate
+ * uncached chunks over the dev server. If nothing has reported in by then the pool is not
+ * coming up and this thread takes over.
+ */
+const READY_TIMEOUT_MS = 15_000;
+
+/**
+ * How long a single stage may sit in a worker before the pool is presumed dead.
+ *
+ * A stage is around a second on a real case, so this is not a performance bound; it is the
+ * backstop that turns any silent stall into a slow import instead of a hung one.
+ */
+const TASK_TIMEOUT_MS = 60_000;
+
+const LOG = '[stl-import]';
+
 interface Task {
   buffer: ArrayBuffer;
   placement: StagePlacement;
@@ -38,8 +59,17 @@ interface Task {
 
 interface Lane {
   worker: Worker;
+  /**
+   * Set when the worker has posted its ready message, meaning its `onmessage` is installed.
+   * No task is posted before this. A bundler may run the worker's module body only after
+   * awaiting its chunk loads, and a message that arrives before the handler exists is
+   * dropped by the browser with no error on either side.
+   */
+  ready: boolean;
   /** The task this worker is currently running, or null when it is free. */
   current: Task | null;
+  /** Watchdog for `current`, or for the ready handshake before any task is assigned. */
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 export interface StlImportSession {
@@ -59,33 +89,15 @@ function desiredLaneCount(): number {
   return Math.max(1, Math.min(MAX_CONCURRENCY, cores - 1));
 }
 
-function spawnLanes(
-  count: number,
-  onMessage: (event: MessageEvent<StlImportResponse>) => void,
-  onFail: () => void,
-): Lane[] {
-  const lanes: Lane[] = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      // The relative specifier is required: a bundler rewrites this exact
-      // `new Worker(new URL('...', import.meta.url))` shape at build time, and a path
-      // alias inside `new URL` would be resolved as a URL instead and 404 at runtime.
-      const worker = new Worker(new URL('../workers/stlImport.worker.ts', import.meta.url), {
-        type: 'module',
-      });
-      worker.onmessage = onMessage;
-      worker.onerror = (event) => {
-        event.preventDefault();
-        onFail();
-      };
-      lanes.push({ worker, current: null });
-    } catch {
-      // Construction failed, so there is no pool. Whatever spawned already gets torn down
-      // by the caller, which then runs everything on this thread.
-      break;
-    }
-  }
-  return lanes;
+/**
+ * The relative specifier is required: a bundler rewrites this exact
+ * `new Worker(new URL('...', import.meta.url))` shape at build time, and a path alias inside
+ * `new URL` would be resolved as a URL instead and 404 at runtime.
+ */
+function createWorker(): Worker {
+  return new Worker(new URL('../workers/stlImport.worker.ts', import.meta.url), {
+    type: 'module',
+  });
 }
 
 export function createStlImportSession(): StlImportSession {
@@ -95,38 +107,90 @@ export function createStlImportSession(): StlImportSession {
   let nextId = 1;
   let disposed = false;
   let offThread = false;
+  let localBusy = false;
 
-  const settle = (task: Task, response: StlImportResponse) => {
-    if (response.ok) task.resolve(response.result);
-    else task.reject(new Error(response.error));
-  };
-
-  const onMessage = (event: MessageEvent<StlImportResponse>) => {
-    const { id } = event.data;
-    const lane = pending.get(id);
-    if (!lane) return;
-    pending.delete(id);
-    const task = lane.current;
-    lane.current = null;
-    if (task) settle(task, event.data);
-    pump();
+  const clearTimer = (lane: Lane) => {
+    if (lane.timer === null) return;
+    clearTimeout(lane.timer);
+    lane.timer = null;
   };
 
   /**
-   * A worker died, which in practice means the module never loaded, so the others will die
-   * the same way. The whole pool goes, and the task it was holding goes back on the queue
-   * to be run on this thread. The input buffer is still intact because `run` sends a copy
-   * rather than transferring it, which is what makes this retry possible at all.
+   * The pool is not answering, so this thread takes over.
+   *
+   * Whatever the workers were holding goes back on the queue. The input buffers are still
+   * intact because tasks are posted as copies rather than transferred, which is what makes
+   * this retry possible at all.
    */
-  const onFail = () => {
+  const degrade = (reason: string) => {
     if (!offThread) return;
     offThread = false;
+    console.error(`${LOG} ${reason} - continuing on the main thread`);
     const orphaned = lanes.map(l => l.current).filter((t): t is Task => t !== null);
-    for (const lane of lanes) lane.worker.terminate();
+    for (const lane of lanes) {
+      clearTimer(lane);
+      lane.worker.terminate();
+    }
     lanes = [];
     pending.clear();
     queue.unshift(...orphaned);
     if (!disposed) pump();
+  };
+
+  const onResponse = (lane: Lane, response: StlImportResponse) => {
+    if (disposed) return;
+
+    if (response.kind === 'ready') {
+      lane.ready = true;
+      clearTimer(lane);
+      pump();
+      return;
+    }
+
+    // A reply for a task this lane is no longer credited with is a straggler: its watchdog
+    // already fired and the stage was re-run elsewhere. Dropping it keeps the result that
+    // the caller has already been given.
+    if (pending.get(response.id) !== lane) return;
+    pending.delete(response.id);
+    clearTimer(lane);
+    const task = lane.current;
+    lane.current = null;
+    if (task) {
+      if (response.kind === 'result') task.resolve(response.result);
+      else task.reject(new Error(response.error));
+    }
+    pump();
+  };
+
+  const spawn = (count: number) => {
+    for (let i = 0; i < count; i++) {
+      try {
+        const lane: Lane = { worker: createWorker(), ready: false, current: null, timer: null };
+        lane.worker.onmessage = (event: MessageEvent<StlImportResponse>) =>
+          onResponse(lane, event.data);
+        lane.worker.onerror = (event) => {
+          // Reported, not swallowed. A worker that throws while loading its module is the
+          // likeliest way this pool breaks, and calling preventDefault here would hide the
+          // one line that explains why the import went slow.
+          console.error(`${LOG} worker error: ${event.message || 'unknown'}`, event);
+          degrade('worker failed');
+        };
+        // Until the handshake arrives this timer covers module load, not a task.
+        lane.timer = setTimeout(() => {
+          if (lanes.some(l => l.ready)) {
+            // Others came up, so this one is simply dead weight rather than evidence that
+            // workers are unavailable. Leave it unready and it is never dispatched to.
+            clearTimer(lane);
+            return;
+          }
+          degrade(`no worker reported ready within ${READY_TIMEOUT_MS}ms`);
+        }, READY_TIMEOUT_MS);
+        lanes.push(lane);
+      } catch (error) {
+        console.error(`${LOG} worker construction failed`, error);
+        break;
+      }
+    }
   };
 
   const runHere = async (task: Task) => {
@@ -139,18 +203,19 @@ export function createStlImportSession(): StlImportSession {
     }
   };
 
-  let localBusy = false;
-
   function pump(): void {
     if (disposed) return;
 
     if (offThread) {
       for (const lane of lanes) {
-        if (lane.current || queue.length === 0) continue;
+        if (!lane.ready || lane.current || queue.length === 0) continue;
         const task = queue.shift()!;
         lane.current = task;
         const id = nextId++;
         pending.set(id, lane);
+        lane.timer = setTimeout(() => {
+          degrade(`a stage went unanswered for ${TASK_TIMEOUT_MS}ms`);
+        }, TASK_TIMEOUT_MS);
         const request: StlImportRequest = {
           id,
           buffer: task.buffer,
@@ -173,12 +238,13 @@ export function createStlImportSession(): StlImportSession {
     });
   }
 
-  lanes = spawnLanes(desiredLaneCount(), onMessage, onFail);
+  spawn(desiredLaneCount());
   offThread = lanes.length > 0;
-  if (!offThread) {
-    for (const lane of lanes) lane.worker.terminate();
-    lanes = [];
-  }
+  console.info(
+    offThread
+      ? `${LOG} importing with ${lanes.length} worker(s)`
+      : `${LOG} importing on the main thread`,
+  );
 
   return {
     get offThread() {
@@ -200,7 +266,10 @@ export function createStlImportSession(): StlImportSession {
       // settle it, so it is rejected here alongside the queued ones. Left pending it would
       // strand the caller's loop and hold on to the buffer it was parsing.
       const inFlight = lanes.map(lane => lane.current).filter((t): t is Task => t !== null);
-      for (const lane of lanes) lane.worker.terminate();
+      for (const lane of lanes) {
+        clearTimer(lane);
+        lane.worker.terminate();
+      }
       lanes = [];
       pending.clear();
       const abandoned = [...inFlight, ...queue.splice(0, queue.length)];

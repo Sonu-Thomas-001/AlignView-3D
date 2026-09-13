@@ -339,6 +339,7 @@ npx tsc --noEmit -p .                       # types
 npm run build                               # production build, including its own type pass
 npx tsx scripts/e2e-real-data-check.ts      # geometry pipeline against a real case in /STL
 npx tsx scripts/worker-roundtrip-check.ts   # worker/main-thread geometry contract
+npx tsx scripts/import-session-check.ts     # import dispatch, including a broken worker pool
 ```
 
 ---

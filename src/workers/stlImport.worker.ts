@@ -15,14 +15,15 @@ import {
 
 export interface StlImportRequest {
   id: number;
-  /** Transferred, not copied. Detached on the sender once posted. */
+  /** Copied, not transferred, so the sender can retry the stage if this worker dies. */
   buffer: ArrayBuffer;
   placement: StagePlacement;
 }
 
 export type StlImportResponse =
-  | { id: number; ok: true; result: StageImport }
-  | { id: number; ok: false; error: string };
+  | { kind: 'ready' }
+  | { kind: 'result'; id: number; result: StageImport }
+  | { kind: 'error'; id: number; error: string };
 
 /**
  * Typed by hand rather than through the webworker lib, which would need its own tsconfig
@@ -38,14 +39,27 @@ ctx.onmessage = (event) => {
   const { id, buffer, placement } = event.data;
   try {
     const result = importArchStage(buffer, placement);
-    ctx.postMessage({ id, ok: true, result }, transferablesOf(result));
+    ctx.postMessage({ kind: 'result', id, result }, transferablesOf(result));
   } catch (error) {
     // A worker that throws for one bad file must not take the rest of the case down with
     // it, so the failure is reported as a message and the worker stays alive.
     ctx.postMessage({
+      kind: 'error',
       id,
-      ok: false,
       error: error instanceof Error ? error.message : String(error),
     });
   }
 };
+
+/**
+ * Announces that the handler above is installed. Must be the last statement in the module.
+ *
+ * This is not a nicety, it is the difference between the pool working and the import hanging
+ * forever. A bundler does not necessarily run this module during the worker's initial script
+ * evaluation: Turbopack's worker runtime instantiates the entry module after awaiting its
+ * chunk loads, so the module body runs a microtask or more later. The browser enables the
+ * worker's message queue as soon as the initial script finishes, and a message dispatched
+ * while `onmessage` is still null is dropped silently, with no error anywhere. So the main
+ * thread waits to be told this worker is listening rather than assuming it from construction.
+ */
+ctx.postMessage({ kind: 'ready' });
