@@ -133,11 +133,15 @@ export const BiteAdjustPanel: React.FC = () => {
           {biteRegistration ? (
             <>
               Estimated by fitting the two arch surfaces into contact, not from a recorded
-              bite. Contact over{' '}
+              bite. Contact across{' '}
               <span className="font-mono text-slate-300">{biteRegistration.contactCells}</span>{' '}
               cells, evenness{' '}
               <span className="font-mono text-slate-300">
                 {biteRegistration.residualStdMm.toFixed(2)} mm
+              </span>
+              , deepest overlap{' '}
+              <span className="font-mono text-slate-300">
+                {biteRegistration.penetrationMm.toFixed(2)} mm
               </span>
               . Adjust by eye if it looks wrong.
             </>

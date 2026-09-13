@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, ContactShadows, Line, MeshReflectorMaterial } from '@react-three/drei';
@@ -311,10 +311,52 @@ function useViewportScreenshot(
   ]);
 }
 
+/**
+ * Clearance kept between the lowest point of the model and the floor, in mm. Set from the
+ * composition the studio lighting and contact shadow were tuned against.
+ */
+const FLOOR_GAP_MM = 3.5;
+
+/** Where the floor sits before there is a model to sit under. */
+const DEFAULT_FLOOR_Y = -13.5;
+
+/**
+ * Names the floor looks for. Set on the arch groups in `DentalArchModel`.
+ */
+const ARCH_GROUP_NAMES = ['UpperArch', 'LowerArch'];
+
 // Studio Reflective Floor adaptive to Dark & Light theme
 const StudioReflectiveFloor: React.FC<{ isDark: boolean }> = ({ isDark }) => {
+  /**
+   * Tracked rather than fixed, because how tall the pair of arches is depends on the case.
+   * A constant was tuned against a bite that drew the two arches merged into one another;
+   * once they seat properly the model is around five millimetres taller, and the lower
+   * arch's gingival base passed through the mirror. Every case has its own height, so the
+   * floor follows the model instead of the model being assumed to fit the floor.
+   */
+  const [floorY, setFloorY] = useState(DEFAULT_FLOOR_Y);
+  const scene = useThree(state => state.scene);
+  const bounds = useRef(new THREE.Box3());
+
+  useFrame(() => {
+    let lowest = Infinity;
+    for (const name of ARCH_GROUP_NAMES) {
+      const group = scene.getObjectByName(name);
+      if (!group) continue;
+      // Cheap: this expands by each mesh's cached bounding box under its world matrix
+      // rather than walking vertices.
+      bounds.current.setFromObject(group);
+      if (!bounds.current.isEmpty()) lowest = Math.min(lowest, bounds.current.min.y);
+    }
+    if (!Number.isFinite(lowest)) return;
+
+    // Only when it actually moves, so this does not re-render the floor every frame.
+    const wanted = lowest - FLOOR_GAP_MM;
+    if (Math.abs(wanted - floorY) > 0.05) setFloorY(wanted);
+  });
+
   return (
-    <group position={[0, -13.5, 0]}>
+    <group position={[0, floorY, 0]}>
       {/* Reflective Studio Floor Plane */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[160, 160]} />

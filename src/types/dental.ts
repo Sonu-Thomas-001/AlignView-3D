@@ -21,6 +21,8 @@ export interface BiteAdjustment {
 /** How well the automatic registration fitted, for labelling the estimate honestly. */
 export interface BiteRegistration {
   contactCells: number;
+  /** Deepest interpenetration in the seated bite, in mm. Zero means the crowns only meet. */
+  penetrationMm: number;
   residualStdMm: number;
 }
 

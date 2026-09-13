@@ -163,6 +163,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   biteRegistration: null,
   setBiteRegistration: (registration) =>
     set((s) => (s.biteRegistration?.contactCells === registration?.contactCells
+      && s.biteRegistration?.penetrationMm === registration?.penetrationMm
       && s.biteRegistration?.residualStdMm === registration?.residualStdMm
       ? s
       : { biteRegistration: registration })),

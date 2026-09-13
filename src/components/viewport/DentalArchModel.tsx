@@ -478,6 +478,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     setBiteRegistration(occlusionOffset
       ? {
         contactCells: occlusionOffset.contactCells,
+        penetrationMm: occlusionOffset.penetrationMm,
         residualStdMm: occlusionOffset.residualStdMm,
       }
       : null);
@@ -494,8 +495,17 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     const lBox = activeLowerGeom.boundingBox!;
     const { dx, dy, dz, pitchRad, rollRad } = occlusionOffset;
 
-    const combinedMinY = Math.min(uBox.min.y, lBox.min.y + dy);
-    const combinedMaxY = Math.max(uBox.max.y, lBox.max.y + dy);
+    // The lower arch is tilted into the bite before it is dropped, and a couple of degrees
+    // across a 50mm arch moves its lowest point over a millimetre. Framing on the untilted
+    // box put the model lower in the scene than the scene believed it was.
+    const tiltedLower = lBox.clone().applyMatrix4(
+      new THREE.Matrix4()
+        .makeRotationZ(rollRad)
+        .multiply(new THREE.Matrix4().makeRotationX(pitchRad)),
+    );
+
+    const combinedMinY = Math.min(uBox.min.y, tiltedLower.min.y + dy);
+    const combinedMaxY = Math.max(uBox.max.y, tiltedLower.max.y + dy);
     const recenter = (combinedMinY + combinedMaxY) / 2;
 
     // Manual correction on top of the fit. Sign convention follows what the slider says

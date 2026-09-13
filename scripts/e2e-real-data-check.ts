@@ -16,6 +16,7 @@ import {
 import { importArchStage, geometryFromImport } from '../src/utils/stlImportPipeline';
 import { computeStageMovement, computeMovementColors } from '../src/utils/movementAnalytics';
 import { computeOcclusionOffset } from '../src/utils/occlusion';
+import { ensureBoundsTree } from '../src/utils/meshBvh';
 import { type ToothGumSplit } from '../src/utils/toothGumSegmentation';
 import { STLFileInfo } from '../src/types/dental';
 import * as THREE from 'three';
@@ -308,6 +309,55 @@ function measureMidlineX(geometry: THREE.BufferGeometry): number {
   return count > 0 ? sum / count : NaN;
 }
 
+/**
+ * Independent check that the seated arches do not pass through each other.
+ *
+ * Deliberately does not reuse anything the registration uses: it counts how many times a ray
+ * straight up from a lower crown point crosses the upper shell, and an odd number of crossings
+ * means that point is inside it. A seat derived from its own clearance measurement can always
+ * agree with itself, and the defect this guards against - crowns drawn merged into a single
+ * white mass - was invisible to every check that trusted the same measurement twice.
+ */
+function measurePenetration(upper: THREE.BufferGeometry, seated: THREE.BufferGeometry) {
+  const bvh = ensureBoundsTree(upper);
+  const position = seated.attributes.position;
+  const index = seated.index;
+  const split = seated.userData.toothGumSplit as ToothGumSplit | undefined;
+  // Crown triangles lead the draw order, which is the index when the geometry has one -
+  // and it has one here, because building a hierarchy over it created one.
+  const triangles = Math.floor((index ? index.count : position.count) / 3);
+  const crownTriangles = split ? Math.min(triangles, split.toothTriangles) : triangles;
+  const stride = Math.max(1, Math.floor(crownTriangles / 4000));
+
+  const ray = new THREE.Ray(new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
+  const nearest = { point: new THREE.Vector3(), distance: 0, faceIndex: -1 };
+  let tested = 0;
+  let inside = 0;
+  let deepestMm = 0;
+
+  for (let triangle = 0; triangle < crownTriangles; triangle += stride) {
+    const i = index ? index.getX(triangle * 3) : triangle * 3;
+    ray.origin.set(position.getX(i), position.getY(i), position.getZ(i));
+    tested++;
+    if (bvh.raycast(ray, THREE.DoubleSide).length % 2 === 0) continue;
+    inside++;
+    // How far inside: the distance out to the nearest point of the surface it is behind.
+    const hit = bvh.closestPointToPoint(ray.origin, nearest, 0, 10);
+    if (hit) deepestMm = Math.max(deepestMm, hit.distance);
+  }
+
+  return { tested, inside, insideFraction: tested > 0 ? inside / tested : 0, deepestMm };
+}
+
+/** The seat's own reported overlap, bounded by how far down the contact list it seats. */
+const MAX_SEAT_PENETRATION_MM = 0.6;
+/** Share of crown points allowed to be inside the opposing arch. Was 46% before the fix. */
+const MAX_INSIDE_FRACTION = 0.01;
+/** Deepest any crown point may sit inside the opposing arch. Was 3.4mm before the fix. */
+const MAX_PENETRATION_MM = 0.6;
+
+let biteWarnings = 0;
+
 // Only the reference stage of an arch is self-centred. Every later stage inherits that
 // stage's transform, so its own yaw and midline drift as the teeth move - that drift is
 // the movement being visualised, not a registration fault.
@@ -328,37 +378,59 @@ function checkBitePair(upperName: string, lowerName: string, isReferencePair: bo
 
   const offset = computeOcclusionOffset(upperGeom, lowerGeom);
 
-  // Apply the full correction (tilt + translation) and re-run the fit once more:
-  // the residual pitch/roll on this second pass should be close to zero if the
-  // tilt correction actually removed the systematic gap slope (not just anchored
-  // to one contact point).
-  const shifted = lowerGeom.clone();
-  shifted.rotateX(offset.pitchRad);
-  shifted.rotateZ(offset.rollRad);
-  shifted.translate(offset.dx, offset.dy, offset.dz);
+  // The lower arch as the viewport draws it: tilted, then translated into the bite.
+  const seated = lowerGeom.clone();
+  seated.userData.toothGumSplit = lowerGeom.userData.toothGumSplit;
+  seated.rotateX(offset.pitchRad);
+  seated.rotateZ(offset.rollRad);
+  seated.translate(offset.dx, offset.dy, offset.dz);
+
   upperGeom.computeBoundingBox();
-  shifted.computeBoundingBox();
-  const yOverlap = Math.min(upperGeom.boundingBox!.max.y, shifted.boundingBox!.max.y) -
-    Math.max(upperGeom.boundingBox!.min.y, shifted.boundingBox!.min.y);
-  const residualFit = computeOcclusionOffset(upperGeom, shifted);
+  seated.computeBoundingBox();
+  const yOverlap = Math.min(upperGeom.boundingBox!.max.y, seated.boundingBox!.max.y) -
+    Math.max(upperGeom.boundingBox!.min.y, seated.boundingBox!.min.y);
+
+  const penetration = measurePenetration(upperGeom, seated);
+
+  // Re-registering an already-seated pair should ask for no further correction. The second
+  // call applies its own overjet shift, so that is undone first. This is the strongest
+  // available statement that the fit converged, because it checks the whole transform rather
+  // than only the tilt: a seat derived from the mean gap instead of the closest approach asks
+  // to move several millimetres again, which is exactly what it used to do.
+  const reseat = seated.clone();
+  reseat.userData.toothGumSplit = seated.userData.toothGumSplit;
+  reseat.translate(0, 0, -offset.dz);
+  const residualFit = computeOcclusionOffset(upperGeom, reseat);
 
   const yawTolerance = isReferencePair ? 0.5 : 6;
   const midlineTolerance = isReferencePair ? 0.5 : 4;
   const yawOk = Math.abs(upperYaw) < yawTolerance && Math.abs(lowerYaw) < yawTolerance;
   const midlineOk = Math.abs(upperMidline) < midlineTolerance && Math.abs(lowerMidline) < midlineTolerance;
-  const contactOk = offset.contactCells > 50 && yOverlap > 0 && yOverlap < 20;
-  const tiltConverged = Math.abs(residualFit.pitchRad) < 0.01 && Math.abs(residualFit.rollRad) < 0.01; // < ~0.6deg residual
+  // Contact over a handful of 2mm cells, and a vertical overlap consistent with an incisal
+  // overbite rather than with two arches drawn through one another.
+  const contactOk = offset.contactCells >= 4 && yOverlap > 0 && yOverlap < 12;
+  const seatOk = offset.penetrationMm < MAX_SEAT_PENETRATION_MM
+    && penetration.insideFraction < MAX_INSIDE_FRACTION
+    && penetration.deepestMm < MAX_PENETRATION_MM;
+  const converged = Math.abs(residualFit.dy) < 0.1
+    && Math.abs(residualFit.pitchRad) < 0.0035
+    && Math.abs(residualFit.rollRad) < 0.0035; // < ~0.2deg residual
+
+  if (!yawOk || !midlineOk || !contactOk || !seatOk || !converged) biteWarnings++;
 
   console.log(`${upperName} + ${lowerName}`);
   console.log(`  ${isReferencePair ? 'reference stages (expect ~0)' : 'later stages (drift expected)'}`);
   console.log(`  yaw: upper=${upperYaw.toFixed(3)}deg lower=${lowerYaw.toFixed(3)}deg ${yawOk ? 'OK' : '** YAW MISALIGNED **'}`);
   console.log(`  midline: upper=${upperMidline.toFixed(3)}mm lower=${lowerMidline.toFixed(3)}mm ${midlineOk ? 'OK' : '** MIDLINE MISALIGNED **'}`);
   console.log(`  occlusion offset: dx=${offset.dx} dy=${offset.dy.toFixed(3)} dz=${offset.dz} pitchDeg=${(offset.pitchRad * 180 / Math.PI).toFixed(3)} rollDeg=${(offset.rollRad * 180 / Math.PI).toFixed(3)} contactCells=${offset.contactCells} bboxYOverlap=${yOverlap.toFixed(2)}mm ${contactOk ? 'OK' : '** SUSPICIOUS CONTACT **'}`);
-  console.log(`  residual tilt after correction: pitchDeg=${(residualFit.pitchRad * 180 / Math.PI).toFixed(3)} rollDeg=${(residualFit.rollRad * 180 / Math.PI).toFixed(3)} ${tiltConverged ? 'OK (converged)' : '** TILT DID NOT CONVERGE **'}`);
+  console.log(`  seat: reported penetration=${offset.penetrationMm.toFixed(3)}mm evenness=${offset.residualStdMm.toFixed(3)}mm | measured ${penetration.inside}/${penetration.tested} crown points inside the upper (${(100 * penetration.insideFraction).toFixed(2)}%), deepest ${penetration.deepestMm.toFixed(3)}mm ${seatOk ? 'OK' : '** ARCHES INTERPENETRATE **'}`);
+  console.log(`  re-registering the seated pair: dy=${residualFit.dy.toFixed(3)}mm pitchDeg=${(residualFit.pitchRad * 180 / Math.PI).toFixed(3)} rollDeg=${(residualFit.rollRad * 180 / Math.PI).toFixed(3)} ${converged ? 'OK (converged)' : '** FIT DID NOT CONVERGE **'}`);
 }
 
 console.log('\n--- Bite/occlusion verification ---');
 checkBitePair('Krishnapriya Upper jaw - 25 - Model.stl', 'Krishnapriya Lower jaw - 07 - Model.stl', false);
 checkBitePair('Krishnapriya Upper jaw - 01 - Model.stl', 'Krishnapriya Lower jaw - 01 - Model.stl', true);
+
+console.log(`\nBite warnings: ${biteWarnings} ` + (biteWarnings === 0 ? 'OK' : '** SEE ABOVE **'));
 
 console.log('\nDone.');
