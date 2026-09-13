@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   Play, 
   Pause, 
@@ -9,11 +9,68 @@ import {
   ShieldCheck,
   AlertTriangle,
   Info,
-  ChevronUp,
+  Loader2,
   X
 } from 'lucide-react';
 import { useViewerStore } from '@/store/useViewerStore';
-import { computeStageSafetyMetrics } from '@/utils/movementAnalytics';
+import { computeStageMovement, type StageMovementMetrics } from '@/utils/movementAnalytics';
+import type { STLFileInfo } from '@/types/dental';
+
+/** Typical per-stage crown movement budget for clear aligners, in mm. */
+const PER_STAGE_BUDGET_MM = 0.25;
+
+interface MovementReading {
+  perStage: StageMovementMetrics;
+  total: StageMovementMetrics;
+}
+
+/**
+ * Measures crown movement for the current stage off the render path.
+ *
+ * Each measurement samples 20,000 crown points against a bounding volume hierarchy of
+ * the comparison stage, which takes a few hundred milliseconds the first time a pair is
+ * compared. Running that inside a `useMemo` would stall the frame, so it is
+ * deferred and debounced, and skipped during playback, where the stage changes faster
+ * than a measurement completes. Results are memoised per stage pair, so scrubbing back
+ * over stages already visited is instant.
+ */
+function useStageMovement(
+  upperFiles: STLFileInfo[],
+  lowerFiles: STLFileInfo[],
+  stage: number,
+  isPlaying: boolean,
+): { reading: MovementReading | null; isMeasuring: boolean } {
+  const [reading, setReading] = useState<MovementReading | null>(null);
+  const [isMeasuring, setIsMeasuring] = useState(false);
+  const measuredKey = useRef<string>('');
+
+  const key = `${stage}:${upperFiles.length}:${lowerFiles.length}:${upperFiles[0]?.id ?? ''}:${lowerFiles[0]?.id ?? ''}`;
+
+  useEffect(() => {
+    if (isPlaying) return;
+    if (measuredKey.current === key) return;
+
+    let cancelled = false;
+    setIsMeasuring(true);
+
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      const perStage = computeStageMovement(upperFiles, lowerFiles, stage);
+      const total = computeStageMovement(upperFiles, lowerFiles, stage, true);
+      if (cancelled) return;
+      measuredKey.current = key;
+      setReading({ perStage, total });
+      setIsMeasuring(false);
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [key, isPlaying, stage, upperFiles, lowerFiles]);
+
+  return { reading, isMeasuring };
+}
 
 export const TimelinePlayback: React.FC = () => {
   const {
@@ -35,9 +92,39 @@ export const TimelinePlayback: React.FC = () => {
     lowerFiles,
   } = useViewerStore();
 
-  const safetyMetrics = useMemo(() => {
-    return computeStageSafetyMetrics(upperFiles, lowerFiles, currentStep);
-  }, [upperFiles, lowerFiles, currentStep]);
+  const { reading, isMeasuring } = useStageMovement(upperFiles, lowerFiles, currentStep, isPlaying);
+  const perStage = reading?.perStage ?? null;
+  const total = reading?.total ?? null;
+
+  // The per-stage budget only means something when the two stages compared really are
+  // consecutive. Arches often skip stage numbers (the sample case has 25 upper stages
+  // against 7 lower), and a jump across several stages is expected to exceed it.
+  const isConsecutive = perStage?.fromStage === currentStep - 1;
+  // The budget verdict reads the 95th percentile, not the single largest spot. A lone
+  // peak is usually a composite attachment appearing or interproximal reduction, which
+  // is a real change in the model but not the arch stepping further than planned.
+  const typicalMm = perStage?.p95Mm ?? 0;
+
+  const badge = useMemo(() => {
+    if (!perStage?.isMeasured) {
+      return { tone: 'neutral' as const, label: currentStep <= 1 ? 'Start' : 'Not measurable' };
+    }
+    const label = `${typicalMm.toFixed(2)} mm`;
+    if (!isConsecutive) return { tone: 'info' as const, label };
+    if (typicalMm <= PER_STAGE_BUDGET_MM) return { tone: 'good' as const, label };
+    return {
+      tone: (typicalMm <= PER_STAGE_BUDGET_MM * 1.4 ? 'warn' : 'over') as 'warn' | 'over',
+      label,
+    };
+  }, [perStage, isConsecutive, typicalMm, currentStep]);
+
+  const badgeClass = {
+    good: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+    warn: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+    over: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+    info: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
+    neutral: 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100',
+  }[badge.tone];
 
   // Automated playback animation interval timer
   useEffect(() => {
@@ -107,28 +194,22 @@ export const TimelinePlayback: React.FC = () => {
             <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-tight">
               File Sequence
             </span>
-            {/* Clinical Movement Velocity Badge */}
+            {/* Measured crown movement badge */}
             <button
               onClick={toggleSafetyPopover}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
-                safetyMetrics.status === 'optimal'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                  : safetyMetrics.status === 'moderate'
-                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                    : safetyMetrics.status === 'baseline'
-                      ? 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-              }`}
-              title="Click to view clinical stage velocity telemetry"
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${badgeClass}`}
+              title="Measured crown movement for this stage. Click for the full breakdown."
             >
-              {safetyMetrics.status === 'optimal' ? (
+              {isMeasuring && !reading ? (
+                <Loader2 className="w-3 h-3 animate-spin text-slate-500" />
+              ) : badge.tone === 'good' ? (
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
-              ) : safetyMetrics.status === 'baseline' ? (
-                <Info className="w-3 h-3 text-slate-500" />
-              ) : (
+              ) : badge.tone === 'warn' || badge.tone === 'over' ? (
                 <AlertTriangle className="w-3 h-3 text-amber-600" />
+              ) : (
+                <Info className="w-3 h-3 text-slate-500" />
               )}
-              <span>{safetyMetrics.maxTranslationMm} mm / {safetyMetrics.maxRotationDeg}°</span>
+              <span>{isMeasuring && !reading ? 'Measuring' : badge.label}</span>
               <Info className="w-2.5 h-2.5 opacity-60 ml-0.5" />
             </button>
           </div>
@@ -273,14 +354,14 @@ export const TimelinePlayback: React.FC = () => {
         </div>
       </div>
 
-      {/* Detailed Clinical Safety Popover Modal */}
+      {/* Measured movement breakdown */}
       {isSafetyPopoverOpen && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[340px] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-4 shadow-2xl border border-slate-750 z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[360px] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-4 shadow-2xl border border-slate-700 z-50 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Stage {currentStep} Clinical Telemetry
+                Stage {currentStep} crown movement
               </h4>
             </div>
             <button
@@ -291,33 +372,85 @@ export const TimelinePlayback: React.FC = () => {
             </button>
           </div>
 
-          <p className="text-[10px] text-slate-500 -mt-1 mb-2 leading-snug">
-            Whole-arch centroid shift vs. the previous stage STL — an approximation, not a per-tooth clinical measurement.
+          <p className="text-[10px] text-slate-500 -mt-1 mb-2.5 leading-snug">
+            Distance from each sampled crown point to the nearest surface on the comparison
+            stage. A whole-arch surface measurement, not a per-tooth clinical reading.
           </p>
 
-          <div className="space-y-2.5 text-xs">
-            <div className="grid grid-cols-2 gap-2 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
-              <div>
-                <span className="text-[10px] text-slate-400 block">Max Translation</span>
-                <span className="font-bold text-emerald-400 text-sm">{safetyMetrics.maxTranslationMm} mm</span>
-                <span className="text-[9px] text-slate-500 block">Limit: ≤ 0.25 mm</span>
+          {!reading ? (
+            <div className="flex items-center gap-2 text-[11px] text-slate-400 py-4 justify-center">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>{isPlaying ? 'Paused during playback' : 'Measuring stage geometry'}</span>
+            </div>
+          ) : (
+            <div className="space-y-2.5 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
+                  <span className="text-[10px] text-slate-400 block">
+                    {perStage?.isMeasured ? `From stage ${perStage.fromStage}` : 'This stage'}
+                  </span>
+                  <span className={`font-bold text-sm ${
+                    badge.tone === 'good'
+                      ? 'text-emerald-400'
+                      : badge.tone === 'neutral'
+                        ? 'text-slate-300'
+                        : 'text-amber-400'
+                  }`}>
+                    {perStage?.isMeasured ? `${perStage.p95Mm.toFixed(2)} mm` : 'n/a'}
+                  </span>
+                  <span className="text-[9px] text-slate-500 block">
+                    95th pct{isConsecutive ? `, budget ${PER_STAGE_BUDGET_MM.toFixed(2)} mm` : ''}
+                  </span>
+                </div>
+                <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
+                  <span className="text-[10px] text-slate-400 block">
+                    {total?.isMeasured ? `Since stage ${total.fromStage}` : 'Since start'}
+                  </span>
+                  <span className="font-bold text-sm text-blue-300">
+                    {total?.isMeasured ? `${total.maxMm.toFixed(2)} mm` : 'n/a'}
+                  </span>
+                  <span className="text-[9px] text-slate-500 block">total correction, peak</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block">Max Rotation</span>
-                <span className="font-bold text-emerald-400 text-sm">{safetyMetrics.maxRotationDeg}°</span>
-                <span className="text-[9px] text-slate-500 block">Limit: ≤ 2.0°</span>
+
+              {perStage?.isMeasured && (
+                <div className="space-y-1.5 px-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Largest local change</span>
+                    <span className="font-semibold text-slate-200 tabular-nums">
+                      {perStage.maxMm.toFixed(2)} mm
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Average this stage</span>
+                    <span className="font-semibold text-slate-200 tabular-nums">
+                      {perStage.meanMm.toFixed(3)} mm
+                    </span>
+                  </div>
+                  {(['upper', 'lower'] as const).map((arch) => {
+                    const displacement = perStage[arch];
+                    if (!displacement) return null;
+                    return (
+                      <div key={arch} className="flex justify-between items-center">
+                        <span className="text-slate-400 capitalize">{arch} arch surface moved</span>
+                        <span className="font-semibold text-slate-200 tabular-nums">
+                          {(displacement.movingFraction * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Larger movement in</span>
+                    <span className="font-semibold text-blue-300">{perStage.dominantArch}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-2 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-200 leading-relaxed">
+                {perStage?.message}
               </div>
             </div>
-
-            <div className="flex justify-between items-center px-1">
-              <span className="text-slate-400">Dominant Arch Shift:</span>
-              <span className="font-semibold text-blue-300">{safetyMetrics.dominantArch}</span>
-            </div>
-
-            <div className="p-2 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-200 leading-relaxed">
-              💡 {safetyMetrics.statusMessage}
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>

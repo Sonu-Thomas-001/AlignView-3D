@@ -3,23 +3,26 @@
 import React, { useMemo } from 'react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { Activity } from 'lucide-react';
-import { archMovement } from '@/utils/movementAnalytics';
+import { localDisplacementAt } from '@/utils/movementAnalytics';
 
 export const ToothHoverTooltip: React.FC = () => {
   const { hoveredTooth, currentStep, upperFiles, lowerFiles } = useViewerStore();
 
   const isUpper = hoveredTooth?.arch === 'upper';
   const archFiles = isUpper ? upperFiles : lowerFiles;
+  const localPoint = hoveredTooth?.localPoint;
 
+  // How far this exact patch of surface has moved since the start of treatment. A single
+  // nearest-point query against a grid the timeline has usually already built, so it is
+  // cheap enough to run on every pointer move.
   const movement = useMemo(
-    () => archMovement(archFiles, currentStep),
-    [archFiles, currentStep]
+    () => (localPoint
+      ? localDisplacementAt(archFiles, isUpper ? 'upper' : 'lower', currentStep, localPoint, true)
+      : null),
+    [archFiles, isUpper, currentStep, localPoint],
   );
 
   if (!hoveredTooth) return null;
-
-  const translationMm = movement ? Number(movement.translationMm.toFixed(2)) : 0;
-  const rotationDeg = movement ? Number(movement.rotationDeg.toFixed(1)) : 0;
 
   return (
     <div
@@ -52,14 +55,14 @@ export const ToothHoverTooltip: React.FC = () => {
           {hoveredTooth.name}
         </p>
 
-        {/* Whole-Arch Movement Estimate (not a per-tooth measurement) */}
+        {/* Surface movement at this point, measured against the starting stage */}
         <div className="flex items-center justify-between pt-1 text-[10px] text-slate-300">
           <div className="flex items-center gap-1">
             <Activity className="w-3 h-3 text-blue-400" />
-            <span>{isUpper ? 'Upper' : 'Lower'} Arch Shift</span>
+            <span>{movement ? `Moved since stage ${movement.fromStage}` : 'Movement'}</span>
           </div>
           <span className="font-bold text-emerald-400 tabular-nums">
-            {movement ? `${translationMm} mm / ${rotationDeg}°` : '—'}
+            {movement ? `${movement.displacementMm.toFixed(2)} mm` : 'n/a'}
           </span>
         </div>
       </div>

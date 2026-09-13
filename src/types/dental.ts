@@ -27,11 +27,35 @@ export interface STLFileInfo {
   isTemplate?: boolean;
   customUrl?: string;
   customBufferGeometry?: BufferGeometry;
-  // Raw (pre-normalization) arch centroid & principal axis, used to derive real
-  // inter-stage movement estimates since normalizeDentalGeometry re-centers each
-  // stage independently for rendering, discarding absolute position.
+  // Raw (pre-normalization) arch centroid & principal axis of the imported mesh,
+  // retained for provenance and for sanity-checking the import.
   centroid?: Vec3Tuple;
   principalAxis?: Vec3Tuple;
+  /**
+   * True when this stage was placed by its arch's shared reference transform, which
+   * is what makes its position directly comparable with the other stages. False
+   * means the exporter wrote this file in its own coordinate frame, so it had to be
+   * placed on its own and its movement readings are not meaningful.
+   */
+  usesSharedFrame?: boolean;
+  /** Distance (mm) from the reference stage's bounding-box centre after placement. */
+  frameShiftMm?: number;
+}
+
+export interface HoveredTooth {
+  fdi: number;
+  name: string;
+  shortName: string;
+  quadrant: string;
+  arch: 'upper' | 'lower';
+  screenX: number;
+  screenY: number;
+  /**
+   * Hover point in the arch mesh's own coordinates, not world coordinates. The lower
+   * arch is positioned and tilted into occlusion by its group, so a world-space point
+   * cannot be compared against another stage's untransformed geometry.
+   */
+  localPoint?: Vec3Tuple;
 }
 
 export interface MeasurementPoint {

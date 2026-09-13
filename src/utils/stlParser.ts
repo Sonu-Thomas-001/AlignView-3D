@@ -241,15 +241,15 @@ export function computeGeometryPose(geometry: THREE.BufferGeometry): { centroid:
 }
 
 /**
- * Rotates a geometry around Y so its horizontal (X/Z) footprint's principal axis
- * aligns with X — i.e. removes arch yaw. Uses the closed-form 2D PCA angle rather
- * than the 3D power-iteration in `computeGeometryPose`, since we only care about
- * rotation in a single plane here.
+ * Finds the rotation about Y that aligns a geometry's horizontal (X/Z) footprint's
+ * principal axis with X - i.e. the arch's yaw. Uses the closed-form 2D PCA angle
+ * rather than the 3D power-iteration in `computeGeometryPose`, since only rotation
+ * in a single plane matters here.
  */
-function zeroArchYaw(geometry: THREE.BufferGeometry): void {
+function archYawAngle(geometry: THREE.BufferGeometry): number {
   const pos = geometry.attributes.position;
   const n = pos.count;
-  if (n === 0) return;
+  if (n === 0) return 0;
 
   let mx = 0, mz = 0;
   for (let i = 0; i < n; i++) {
@@ -267,52 +267,68 @@ function zeroArchYaw(geometry: THREE.BufferGeometry): void {
     szz += dz * dz;
   }
 
-  const theta = 0.5 * Math.atan2(2 * sxz, sxx - szz);
-  geometry.rotateY(theta);
+  return 0.5 * Math.atan2(2 * sxz, sxx - szz);
 }
 
 /**
- * Automatically normalizes imported dental mesh orientation into standard Three.js dental studio coordinates:
- * - X: Transverse / Left-Right (Arch width)
- * - Y: Vertical / Superior-Inferior (Height)
- * - Z: Sagittal / Anterior-Posterior (Incisors at +Z, Molars at -Z)
+ * Derives the transform that puts an imported dental mesh into standard Three.js
+ * dental studio coordinates:
+ * - X: Transverse / Left-Right (arch width), midline at x = 0
+ * - Y: Vertical / Superior-Inferior (height)
+ * - Z: Sagittal / Anterior-Posterior (incisors at +Z, molars at -Z)
+ *
+ * Returned as a single `Matrix4` rather than applied in place, because every stage of
+ * one arch must be placed by the SAME transform. CAD aligner exports write each stage
+ * in one shared coordinate frame with the model base fixed and the teeth moving inside
+ * it, so re-deriving (and in particular re-centring) the transform per stage silently
+ * subtracts most of the tooth movement the viewer is supposed to show.
+ *
+ * The mesh passed in is not modified; analysis runs on an internal clone.
  */
-export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'upper' | 'lower'): THREE.BufferGeometry {
-  geometry.computeVertexNormals();
-  geometry.center();
+export function computeDentalNormalization(
+  sourceGeometry: THREE.BufferGeometry,
+  arch: 'upper' | 'lower',
+): THREE.Matrix4 {
+  const geometry = sourceGeometry.clone();
+  const total = new THREE.Matrix4();
+  const step = new THREE.Matrix4();
 
-  // 1. Check initial bounding box
+  // Applies one operation to the working clone while accumulating it into `total`.
+  const apply = (m: THREE.Matrix4) => {
+    geometry.applyMatrix4(m);
+    total.premultiply(m);
+  };
+
   geometry.computeBoundingBox();
-  const bbox = geometry.boundingBox || new THREE.Box3();
-  const size = new THREE.Vector3();
-  bbox.getSize(size);
+  const initialCenter = new THREE.Vector3();
+  geometry.boundingBox!.getCenter(initialCenter);
+  apply(step.makeTranslation(-initialCenter.x, -initialCenter.y, -initialCenter.z));
 
-  // Dental scan dimensions:
-  // Height (Y) is always the smallest axis (~12 - 28 mm)
-  // Width (X) and Depth (Z) are larger (~45 - 75 mm)
+  // 1. Put arch height on Y. Dental scan height (~12-28 mm) is always the smallest
+  // axis; width and depth are larger (~45-75 mm).
+  geometry.computeBoundingBox();
+  const size = new THREE.Vector3();
+  geometry.boundingBox!.getSize(size);
+
   if (size.z < size.x && size.z < size.y) {
-    // Height is in Z axis (CAD software export with Z-up) -> rotate into Y
-    geometry.rotateX(-Math.PI / 2);
+    // Z-up CAD export -> rotate height into Y
+    apply(step.makeRotationX(-Math.PI / 2));
   } else if (size.x < size.y && size.x < size.z) {
-    // Height is in X axis -> rotate into Y
-    geometry.rotateZ(Math.PI / 2);
+    apply(step.makeRotationZ(Math.PI / 2));
   }
+
+  // 2. Zero the arch yaw so every stage and both arches share one width axis. CAD
+  // exports commonly bake in a few degrees of yaw; PCA on the horizontal footprint
+  // finds the arch's true long axis, which is what lets upper and lower line up
+  // without a visible twist in Both Arches view.
+  apply(step.makeRotationY(archYawAngle(geometry)));
 
   geometry.computeBoundingBox();
   const sizeAfterHeight = new THREE.Vector3();
   geometry.boundingBox!.getSize(sizeAfterHeight);
 
-  // 1b. Zero out arch yaw so every stage/arch shares one width axis (X).
-  // CAD exports commonly have a few degrees of yaw baked in; PCA on the
-  // horizontal (X/Z) footprint finds the arch's true long axis and rotates
-  // it onto X, which is what lets upper/lower (and stage-to-stage) meshes
-  // line up without a visible twist in "Both Arches" view.
-  zeroArchYaw(geometry);
-  geometry.computeBoundingBox();
-  geometry.boundingBox!.getSize(sizeAfterHeight);
-
-  // 2. Align Anterior (Incisors at front +Z) vs Posterior (Molars at back -Z)
-  // In a dental arch, the anterior incisor region is narrower in X than the posterior molar region
+  // 3. Face the anterior (incisors) towards +Z. In a dental arch the anterior incisor
+  // region is narrower in X than the posterior molar region.
   const pos = geometry.attributes.position;
   let frontWidth = 0;
   let frontCount = 0;
@@ -337,15 +353,12 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
   const avgFrontX = frontCount > 0 ? frontWidth / frontCount : 0;
   const avgBackX = backCount > 0 ? backWidth / backCount : 0;
 
-  // If front is wider than back, arch is facing backwards -> rotate 180 deg around Y
   if (avgFrontX > avgBackX && backCount > 10) {
-    geometry.rotateY(Math.PI);
+    apply(step.makeRotationY(Math.PI));
   }
 
-  // 3. Occlusal Plane Orientation (Crowns vs Base)
-  // For Upper Arch: Teeth crowns should point DOWN (towards -Y, occlusal contact), base on top (+Y)
-  // For Lower Arch: Teeth crowns should point UP (towards +Y, occlusal contact), base on bottom (-Y)
-  // We check the curvature / surface normals or vertex density near the occlusal edges vs the flat base cut:
+  // 4. Occlusal plane orientation. Upper arch: crowns point down (-Y) with the base on
+  // top (+Y). Lower arch: crowns point up (+Y) with the base at the bottom (-Y).
   let topCuspCount = 0;
   let bottomCuspCount = 0;
   const halfHeight = sizeAfterHeight.y * 0.25;
@@ -356,30 +369,20 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
     else if (y < -halfHeight) bottomCuspCount++;
   }
 
-  // If upper arch has base at bottom instead of top, flip it around X
-  // Dental crowns have more detailed/higher surface area than flat horseshoe bases
-  if (arch === 'upper') {
-    // In upper jaw, crowns point down (-Y) and gums/base are up (+Y)
-    // If crowns are currently facing up, flip X
-    if (topCuspCount > bottomCuspCount * 1.4) {
-      geometry.rotateX(Math.PI);
-      geometry.rotateY(Math.PI); // keep front facing forward
-    }
-  } else {
-    // In lower jaw, crowns point up (+Y) and base is down (-Y)
-    if (bottomCuspCount > topCuspCount * 1.4) {
-      geometry.rotateX(Math.PI);
-      geometry.rotateY(Math.PI);
-    }
+  const needsOcclusalFlip = arch === 'upper'
+    ? topCuspCount > bottomCuspCount * 1.4
+    : bottomCuspCount > topCuspCount * 1.4;
+
+  if (needsOcclusalFlip) {
+    apply(step.makeRotationX(Math.PI));
+    apply(step.makeRotationY(Math.PI)); // keep the front facing forward
   }
 
-  geometry.computeVertexNormals();
-
-  // Final centering: center Y/Z on the bounding box as before, but center X on
-  // the dental midline (mean X of the anterior-most 3mm incisor band) rather
-  // than the bbox center. The horseshoe-shaped base skews the bbox center away
-  // from true anatomical midline, which is what previously left upper/lower
-  // arches laterally offset from each other in "Both Arches" view.
+  // 5. Final centring. Y and Z centre on the bounding box, but X centres on the dental
+  // midline (mean X of the anterior-most 3 mm incisor band) rather than the bbox
+  // centre: the horseshoe-shaped base skews the bbox centre away from the true
+  // anatomical midline, which is what leaves the arches laterally offset from each
+  // other in Both Arches view.
   geometry.computeBoundingBox();
   const finalBbox = geometry.boundingBox!;
   const anteriorCutoffZ = finalBbox.max.z - 3;
@@ -397,8 +400,32 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
   const centerY = (finalBbox.min.y + finalBbox.max.y) / 2;
   const centerZ = (finalBbox.min.z + finalBbox.max.z) / 2;
 
-  geometry.translate(-midlineX, -centerY, -centerZ);
+  apply(step.makeTranslation(-midlineX, -centerY, -centerZ));
 
+  geometry.dispose();
+  return total;
+}
+
+/** Places a geometry into the dental studio frame using a precomputed transform. */
+export function applyDentalNormalization(
+  geometry: THREE.BufferGeometry,
+  matrix: THREE.Matrix4,
+): THREE.BufferGeometry {
+  geometry.applyMatrix4(matrix);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
   return geometry;
 }
 
+/**
+ * Normalizes a single mesh into the dental studio frame using a transform derived
+ * from that same mesh. Correct for a one-off mesh, but do NOT use it across the
+ * stages of one arch - use `computeDentalNormalization` once on a reference stage and
+ * `applyDentalNormalization` for the rest, so relative tooth movement survives.
+ */
+export function normalizeDentalGeometry(
+  geometry: THREE.BufferGeometry,
+  arch: 'upper' | 'lower',
+): THREE.BufferGeometry {
+  return applyDentalNormalization(geometry, computeDentalNormalization(geometry, arch));
+}

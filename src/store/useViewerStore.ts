@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint } from '@/types/dental';
+import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint, HoveredTooth } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
 
 const INITIAL_UPPER_FILES: STLFileInfo[] = [];
@@ -43,8 +43,8 @@ interface ViewerState {
   setPatientName: (name: string) => void;
 
   // FDI Tooth Hover & Identification
-  hoveredTooth: { fdi: number; name: string; shortName: string; quadrant: string; arch: 'upper' | 'lower'; screenX: number; screenY: number } | null;
-  setHoveredTooth: (tooth: { fdi: number; name: string; shortName: string; quadrant: string; arch: 'upper' | 'lower'; screenX: number; screenY: number } | null) => void;
+  hoveredTooth: HoveredTooth | null;
+  setHoveredTooth: (tooth: HoveredTooth | null) => void;
 
   // Clinical Safety Popover
   isSafetyPopoverOpen: boolean;

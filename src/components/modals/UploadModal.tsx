@@ -18,7 +18,13 @@ import {
 } from 'lucide-react';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
-import { parseSTLFilename, detectBatchPatientName, sortSTLFilesByStage, normalizeDentalGeometry, computeGeometryPose } from '@/utils/stlParser';
+import {
+  parseSTLFilename,
+  detectBatchPatientName,
+  computeDentalNormalization,
+  applyDentalNormalization,
+  computeGeometryPose,
+} from '@/utils/stlParser';
 import { STLFileInfo } from '@/types/dental';
 
 export const UploadModal: React.FC = () => {
@@ -138,37 +144,106 @@ export const UploadModal: React.FC = () => {
     const lowerSTLs: STLFileInfo[] = [];
 
     const loader = new STLLoader();
+
+    // Pass 1: resolve arch + stage for every file without touching geometry, so the
+    // import order can be chosen deliberately below.
     let upperFallbackStage = 0;
     let lowerFallbackStage = 0;
 
+    const plan = stagedFiles.map((file, index) => {
+      const meta = parseSTLFilename(file.name);
+      const arch: 'upper' | 'lower' = selectedArchMode !== 'auto'
+        ? selectedArchMode
+        : (meta.arch === 'lower' ? 'lower' : 'upper'); // default unassigned to upper
+      const isTemplate = meta.isTemplate || /template/i.test(file.name);
+      const fallbackStage = arch === 'upper' ? ++upperFallbackStage : ++lowerFallbackStage;
+
+      return {
+        file,
+        index,
+        arch,
+        isTemplate,
+        stage: meta.stage ?? (isTemplate ? 1 : fallbackStage),
+      };
+    });
+
+    // Every stage of one arch must be placed by the SAME transform, otherwise
+    // re-centring each stage cancels out the tooth movement the viewer exists to
+    // show. The transform is derived from a single reference stage per arch: the
+    // earliest non-template stage, since template scans are sometimes trimmed
+    // differently from the treatment sequence.
+    const referenceIdOf = (arch: 'upper' | 'lower'): number | null => {
+      const archPlan = plan.filter(p => p.arch === arch);
+      if (archPlan.length === 0) return null;
+      const preferred = archPlan.filter(p => !p.isTemplate);
+      const pool = preferred.length > 0 ? preferred : archPlan;
+      return pool.reduce((best, p) => (p.stage < best.stage ? p : best), pool[0]).index;
+    };
+
+    const referenceIds = new Set(
+      [referenceIdOf('upper'), referenceIdOf('lower')].filter((v): v is number => v !== null),
+    );
+
+    // References first so their frame exists before any dependent stage is placed.
+    const ordered = [
+      ...plan.filter(p => referenceIds.has(p.index)),
+      ...plan.filter(p => !referenceIds.has(p.index)),
+    ];
+
+    const archFrames: Partial<Record<'upper' | 'lower', THREE.Matrix4>> = {};
+    const archRefCenters: Partial<Record<'upper' | 'lower', THREE.Vector3>> = {};
+
+    // A stage whose bbox centre lands this far from the reference stage's is not
+    // actually in the same exported frame (some CAD tools re-origin every export).
+    // Real tooth movement shifts a whole-arch bbox centre by well under a millimetre,
+    // so this only catches genuinely mismatched frames.
+    const FRAME_MISMATCH_MM = 5;
+
     try {
-      for (let i = 0; i < stagedFiles.length; i++) {
-        const file = stagedFiles[i];
+      for (let i = 0; i < ordered.length; i++) {
+        const { file, arch, stage, isTemplate } = ordered[i];
         setProgress({
           current: i + 1,
-          total: stagedFiles.length,
+          total: ordered.length,
           currentFileName: file.name,
         });
 
         // Yield to let the UI update progress bar smoothly
         await new Promise(resolve => setTimeout(resolve, 10));
 
-        const meta = parseSTLFilename(file.name);
-        const resolvedArch: 'upper' | 'lower' = selectedArchMode !== 'auto' 
-          ? selectedArchMode 
-          : (meta.arch === 'lower' ? 'lower' : 'upper'); // default unassigned to upper
-
-        const isTemplate = meta.isTemplate || /template/i.test(file.name);
-
-        // Per-arch fallback stage counter for files with no parseable stage number
-        const fallbackStage = resolvedArch === 'upper' ? ++upperFallbackStage : ++lowerFallbackStage;
-
         const buffer = await file.arrayBuffer();
-        let geometry = loader.parse(buffer);
+        const geometry = loader.parse(buffer);
         const rawPose = computeGeometryPose(geometry);
-        geometry = normalizeDentalGeometry(geometry, resolvedArch);
 
-        geometry.computeBoundingBox();
+        let usesSharedFrame = true;
+        let frameShiftMm = 0;
+
+        const existingFrame = archFrames[arch];
+        if (!existingFrame) {
+          const frame = computeDentalNormalization(geometry, arch);
+          archFrames[arch] = frame;
+          applyDentalNormalization(geometry, frame);
+          const center = new THREE.Vector3();
+          geometry.boundingBox!.getCenter(center);
+          archRefCenters[arch] = center;
+        } else {
+          applyDentalNormalization(geometry, existingFrame);
+          const center = new THREE.Vector3();
+          geometry.boundingBox!.getCenter(center);
+          const refCenter = archRefCenters[arch];
+          frameShiftMm = refCenter ? center.distanceTo(refCenter) : 0;
+
+          if (frameShiftMm > FRAME_MISMATCH_MM) {
+            // Undo the shared placement and fall back to a self-derived one. The
+            // stage will look correct on its own but its movement readings against
+            // the rest of the sequence cannot be trusted, which `usesSharedFrame`
+            // records for the UI.
+            geometry.applyMatrix4(existingFrame.clone().invert());
+            applyDentalNormalization(geometry, computeDentalNormalization(geometry, arch));
+            usesSharedFrame = false;
+          }
+        }
+
         const bbox = geometry.boundingBox || new THREE.Box3();
         const size = new THREE.Vector3();
         bbox.getSize(size);
@@ -180,8 +255,8 @@ export const UploadModal: React.FC = () => {
         const stlInfo: STLFileInfo = {
           id: `stl_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
           name: file.name,
-          arch: resolvedArch,
-          stage: meta.stage ?? (isTemplate ? 1 : fallbackStage),
+          arch,
+          stage,
           date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
           fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
           verticesCount: vertCount,
@@ -195,9 +270,11 @@ export const UploadModal: React.FC = () => {
           customBufferGeometry: geometry,
           centroid: { x: rawPose.centroid.x, y: rawPose.centroid.y, z: rawPose.centroid.z },
           principalAxis: { x: rawPose.principalAxis.x, y: rawPose.principalAxis.y, z: rawPose.principalAxis.z },
+          usesSharedFrame,
+          frameShiftMm: parseFloat(frameShiftMm.toFixed(3)),
         };
 
-        if (resolvedArch === 'upper') {
+        if (arch === 'upper') {
           upperSTLs.push(stlInfo);
         } else {
           lowerSTLs.push(stlInfo);

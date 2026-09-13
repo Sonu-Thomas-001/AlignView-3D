@@ -3,12 +3,36 @@ import * as THREE from 'three';
 import { ThreeEvent } from '@react-three/fiber';
 import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
-import { normalizeDentalGeometry, pickFileForStage } from '@/utils/stlParser';
+import { computeDentalNormalization, applyDentalNormalization, pickFileForStage } from '@/utils/stlParser';
 import { computeOcclusionOffset } from '@/utils/occlusion';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 
 // Global cache for loaded and normalized STL geometries
 const geometryCache = new Map<string, THREE.BufferGeometry>();
+
+/**
+ * Placement transforms for URL-loaded sequences, keyed by arch sequence. Every stage
+ * of one arch has to be placed by the same transform: the CAD exporter already writes
+ * all stages in one shared frame with the model base fixed and only the teeth moving,
+ * so deriving (and re-centring) a transform per stage would subtract the very movement
+ * the viewer is meant to show. Whichever stage loads first defines the frame; a
+ * constant offset shared by every stage does not affect relative tooth movement.
+ */
+const archFrameCache = new Map<string, THREE.Matrix4>();
+
+/** Places a URL-loaded stage using its arch sequence's shared transform. */
+function normalizeIntoArchFrame(
+  geometry: THREE.BufferGeometry,
+  arch: 'upper' | 'lower',
+  frameKey: string,
+): THREE.BufferGeometry {
+  let frame = archFrameCache.get(frameKey);
+  if (!frame) {
+    frame = computeDentalNormalization(geometry, arch);
+    archFrameCache.set(frameKey, frame);
+  }
+  return applyDentalNormalization(geometry, frame);
+}
 
 interface DentalArchModelProps {
   stage: number;
@@ -61,6 +85,17 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     [resolveByStage, stage, lowerFiles, selectedLowerId],
   );
 
+  // One frame per arch sequence. Keyed off the earliest stage's id so re-importing a
+  // different case does not reuse the previous case's placement.
+  const upperFrameKey = useMemo(
+    () => `upper:${pickFileForStage(upperFiles, 1)?.id ?? 'none'}`,
+    [upperFiles],
+  );
+  const lowerFrameKey = useMemo(
+    () => `lower:${pickFileForStage(lowerFiles, 1)?.id ?? 'none'}`,
+    [lowerFiles],
+  );
+
   // Load and cache Upper STL geometry
   useEffect(() => {
     if (!selectedUpperFile) {
@@ -91,7 +126,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       url,
       (geometry) => {
         if (cancelled) return;
-        const normalized = normalizeDentalGeometry(geometry, 'upper');
+        const normalized = normalizeIntoArchFrame(geometry, 'upper', upperFrameKey);
         geometryCache.set(url, normalized);
         selectedUpperFile.customBufferGeometry = normalized;
         setActiveUpperGeom(normalized);
@@ -103,7 +138,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedUpperFile, selectedUpperFile?.customBufferGeometry]);
+  }, [selectedUpperFile, selectedUpperFile?.customBufferGeometry, upperFrameKey]);
 
   // Load and cache Lower STL geometry
   useEffect(() => {
@@ -135,7 +170,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       url,
       (geometry) => {
         if (cancelled) return;
-        const normalized = normalizeDentalGeometry(geometry, 'lower');
+        const normalized = normalizeIntoArchFrame(geometry, 'lower', lowerFrameKey);
         geometryCache.set(url, normalized);
         selectedLowerFile.customBufferGeometry = normalized;
         setActiveLowerGeom(normalized);
@@ -147,7 +182,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedLowerFile, selectedLowerFile?.customBufferGeometry]);
+  }, [selectedLowerFile, selectedLowerFile?.customBufferGeometry, lowerFrameKey]);
 
   // Handle FDI Tooth Hover Tooltip via 3D spatial dental mapping
   const handlePointerMove = (e: ThreeEvent<PointerEvent>, arch: 'upper' | 'lower') => {
@@ -156,10 +191,15 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
     if (e.point) {
       const tooth = getFDIToothFromPoint(e.point, arch);
+      // The lower arch group is translated and tilted into occlusion, so the world-space
+      // hit point has to be pulled back into mesh coordinates before it can be compared
+      // against another stage's geometry.
+      const local = e.object.worldToLocal(e.point.clone());
       setHoveredTooth({
         ...tooth,
         screenX: e.clientX,
         screenY: e.clientY,
+        localPoint: { x: local.x, y: local.y, z: local.z },
       });
     }
   };
