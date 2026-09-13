@@ -71,8 +71,8 @@ export interface STLFileInfo {
   gumTriangles?: number;
   /** Mean depth (mm) of the estimated gingival margin below the occlusal surface. */
   gingivalMarginMm?: number;
-  /** Fraction of angular bins where the margin was measured rather than interpolated. */
-  marginDetectedFraction?: number;
+  /** Share of the crown/gum boundary that came to rest in a concave crease - a real margin. */
+  marginOnCreaseFraction?: number;
 }
 
 export interface HoveredTooth {

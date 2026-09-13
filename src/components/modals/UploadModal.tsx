@@ -265,7 +265,7 @@ export const UploadModal: React.FC = () => {
         toothTriangles: split?.toothTriangles,
         gumTriangles: split?.gumTriangles,
         gingivalMarginMm: split ? parseFloat(split.meanMarginMm.toFixed(2)) : undefined,
-        marginDetectedFraction: split ? parseFloat(split.detectedFraction.toFixed(3)) : undefined,
+        marginOnCreaseFraction: split ? parseFloat(split.detectedFraction.toFixed(3)) : undefined,
       };
 
       completed++;

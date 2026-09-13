@@ -171,9 +171,19 @@ for (const info of [...upperFiles, ...lowerFiles]) {
     && geometry.groups[0].count === split.toothTriangles * 3
     && geometry.groups[1].count === split.gumTriangles * 3;
 
+  // Area, not triangle count: these scans triangulate a cusp far more finely than they do smooth
+  // gingiva, so crowns are 83-87% of the triangles of a stage model and 44-45% of its area. The
+  // area share is the one that means anything about how much of the arch was called enamel.
   const areaOk = areaShare > 0.3 && areaShare < 0.7;
-  const marginOk = split.meanMarginMm > 4 && split.meanMarginMm < 9;
-  const coverageOk = split.detectedFraction > 0.4;
+  // A clinical crown is 7-11mm, and an upper central is at the top of that range, so the buccal
+  // margin of an upper arch sits deeper than a lower's - measured at 7.1-8.7mm across these 34
+  // stages. Anything outside 4-11mm is gum called enamel or enamel called gum.
+  const marginOk = split.meanMarginMm > 4 && split.meanMarginMm < 11;
+  // Share of the boundary lying in a crease. Not all of it can: there is no groove across an
+  // interproximal contact, and the palatal margin of an upper is shallower than the buccal one,
+  // which is why the uppers here run at 42-51% and the lowers at 65-67%. A collapse to the teens
+  // is what a leaking front looks like, and that is what this catches.
+  const coverageOk = split.detectedFraction > 0.35;
   if (!areaOk || !marginOk || !coverageOk || !groupsOk) segmentationWarnings++;
 
   console.log(
@@ -181,7 +191,8 @@ for (const info of [...upperFiles, ...lowerFiles]) {
     `area tooth=${(areaShare * 100).toFixed(1)}% ${areaOk ? '' : '** AREA SPLIT OFF **'} ` +
     `margin=${split.meanMarginMm.toFixed(2)}mm (${split.minMarginMm.toFixed(2)}-${split.maxMarginMm.toFixed(2)}) ` +
     `${marginOk ? '' : '** MARGIN DEPTH OFF **'} ` +
-    `measured=${(split.detectedFraction * 100).toFixed(0)}% of bins ${coverageOk ? '' : '** LOW COVERAGE **'} ` +
+    `on-crease=${(split.detectedFraction * 100).toFixed(0)}% ${coverageOk ? '' : '** LOW COVERAGE **'} ` +
+    `scallop=${split.scallopMm.toFixed(2)}mm regions=${split.crownRegions} ` +
     `${groupsOk ? '' : '** GROUPS WRONG **'}`,
   );
 }
@@ -412,7 +423,12 @@ function checkBitePair(upperName: string, lowerName: string, isReferencePair: bo
   const seatOk = offset.penetrationMm < MAX_SEAT_PENETRATION_MM
     && penetration.insideFraction < MAX_INSIDE_FRACTION
     && penetration.deepestMm < MAX_PENETRATION_MM;
-  const converged = Math.abs(residualFit.dy) < 0.1
+  // Tightly for a pair of matching stages, which has a true intercuspation to converge on. A
+  // mismatched pair has none - the closest approach between an upper at stage 25 and a lower at
+  // stage 7 is genuinely ambiguous at the tenth of a millimetre - so it is held to a looser bound
+  // that still catches the failure this check exists for, a seat that asks to move millimetres.
+  const convergenceTolerance = isReferencePair ? 0.1 : 0.3;
+  const converged = Math.abs(residualFit.dy) < convergenceTolerance
     && Math.abs(residualFit.pitchRad) < 0.0035
     && Math.abs(residualFit.rollRad) < 0.0035; // < ~0.2deg residual
 
