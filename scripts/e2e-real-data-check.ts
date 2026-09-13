@@ -17,7 +17,9 @@ import {
   computeGeometryPose,
 } from '../src/utils/stlParser';
 import { computeStageSafetyMetrics } from '../src/utils/movementAnalytics';
+import { computeOcclusionOffset } from '../src/utils/occlusion';
 import { STLFileInfo } from '../src/types/dental';
+import * as THREE from 'three';
 
 const STL_DIR = path.join(__dirname, '..', 'STL');
 const filenames = fs.readdirSync(STL_DIR).filter(f => f.toLowerCase().endsWith('.stl'));
@@ -67,6 +69,7 @@ for (const name of filenames) {
     isTemplate: meta.isTemplate,
     centroid: { x: rawPose.centroid.x, y: rawPose.centroid.y, z: rawPose.centroid.z },
     principalAxis: { x: rawPose.principalAxis.x, y: rawPose.principalAxis.y, z: rawPose.principalAxis.z },
+    customBufferGeometry: geometry,
   };
 
   if (arch === 'upper') upperFiles.push(info);
@@ -92,5 +95,81 @@ for (const f of sortedUpper) {
     `Stage ${f.stage}: translation=${metrics.maxTranslationMm}mm rotation=${metrics.maxRotationDeg}deg status=${metrics.status} dominantArch=${metrics.dominantArch}`
   );
 }
+
+// --- Bite/occlusion verification ---
+// Independently re-measures yaw + midline (should now be ~0 after normalizeDentalGeometry's
+// yaw-zeroing + midline-centering) and checks the computed occlusion offset produces a
+// plausible, bounded contact (not a runaway penetration or a total miss).
+function measureYawDeg(geometry: THREE.BufferGeometry): number {
+  const pos = geometry.attributes.position;
+  const n = pos.count;
+  let mx = 0, mz = 0;
+  for (let i = 0; i < n; i++) { mx += pos.getX(i); mz += pos.getZ(i); }
+  mx /= n; mz /= n;
+  let sxx = 0, sxz = 0, szz = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = pos.getX(i) - mx, dz = pos.getZ(i) - mz;
+    sxx += dx * dx; sxz += dx * dz; szz += dz * dz;
+  }
+  return (0.5 * Math.atan2(2 * sxz, sxx - szz)) * (180 / Math.PI);
+}
+
+function measureMidlineX(geometry: THREE.BufferGeometry): number {
+  const pos = geometry.attributes.position;
+  geometry.computeBoundingBox();
+  const cutoff = geometry.boundingBox!.max.z - 3;
+  let sum = 0, count = 0;
+  for (let i = 0; i < pos.count; i++) {
+    if (pos.getZ(i) > cutoff) { sum += pos.getX(i); count++; }
+  }
+  return count > 0 ? sum / count : NaN;
+}
+
+function checkBitePair(upperName: string, lowerName: string) {
+  const upper = sortedUpper.find(f => f.name === upperName);
+  const lower = sortedLower.find(f => f.name === lowerName);
+  if (!upper?.customBufferGeometry || !lower?.customBufferGeometry) {
+    console.log(`  SKIP: could not find geometry for ${upperName} / ${lowerName}`);
+    return;
+  }
+  const upperGeom = upper.customBufferGeometry;
+  const lowerGeom = lower.customBufferGeometry;
+
+  const upperYaw = measureYawDeg(upperGeom);
+  const lowerYaw = measureYawDeg(lowerGeom);
+  const upperMidline = measureMidlineX(upperGeom);
+  const lowerMidline = measureMidlineX(lowerGeom);
+
+  const offset = computeOcclusionOffset(upperGeom, lowerGeom);
+
+  // Apply the full correction (tilt + translation) and re-run the fit once more:
+  // the residual pitch/roll on this second pass should be close to zero if the
+  // tilt correction actually removed the systematic gap slope (not just anchored
+  // to one contact point).
+  const shifted = lowerGeom.clone();
+  shifted.rotateX(offset.pitchRad);
+  shifted.rotateZ(offset.rollRad);
+  shifted.translate(offset.dx, offset.dy, offset.dz);
+  upperGeom.computeBoundingBox();
+  shifted.computeBoundingBox();
+  const yOverlap = Math.min(upperGeom.boundingBox!.max.y, shifted.boundingBox!.max.y) -
+    Math.max(upperGeom.boundingBox!.min.y, shifted.boundingBox!.min.y);
+  const residualFit = computeOcclusionOffset(upperGeom, shifted);
+
+  const yawOk = Math.abs(upperYaw) < 0.5 && Math.abs(lowerYaw) < 0.5;
+  const midlineOk = Math.abs(upperMidline) < 0.5 && Math.abs(lowerMidline) < 0.5;
+  const contactOk = offset.contactCells > 50 && yOverlap > 0 && yOverlap < 20;
+  const tiltConverged = Math.abs(residualFit.pitchRad) < 0.01 && Math.abs(residualFit.rollRad) < 0.01; // < ~0.6deg residual
+
+  console.log(`${upperName} + ${lowerName}`);
+  console.log(`  yaw: upper=${upperYaw.toFixed(3)}deg lower=${lowerYaw.toFixed(3)}deg ${yawOk ? 'OK' : '** YAW MISALIGNED **'}`);
+  console.log(`  midline: upper=${upperMidline.toFixed(3)}mm lower=${lowerMidline.toFixed(3)}mm ${midlineOk ? 'OK' : '** MIDLINE MISALIGNED **'}`);
+  console.log(`  occlusion offset: dx=${offset.dx} dy=${offset.dy.toFixed(3)} dz=${offset.dz} pitchDeg=${(offset.pitchRad * 180 / Math.PI).toFixed(3)} rollDeg=${(offset.rollRad * 180 / Math.PI).toFixed(3)} contactCells=${offset.contactCells} bboxYOverlap=${yOverlap.toFixed(2)}mm ${contactOk ? 'OK' : '** SUSPICIOUS CONTACT **'}`);
+  console.log(`  residual tilt after correction: pitchDeg=${(residualFit.pitchRad * 180 / Math.PI).toFixed(3)} rollDeg=${(residualFit.rollRad * 180 / Math.PI).toFixed(3)} ${tiltConverged ? 'OK (converged)' : '** TILT DID NOT CONVERGE **'}`);
+}
+
+console.log('\n--- Bite/occlusion verification ---');
+checkBitePair('Krishnapriya Upper jaw - 25 - Model.stl', 'Krishnapriya Lower jaw - 07 - Model.stl');
+checkBitePair('Krishnapriya Upper jaw - 01 - Model.stl', 'Krishnapriya Lower jaw - 01 - Model.stl');
 
 console.log('\nDone.');

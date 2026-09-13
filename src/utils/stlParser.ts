@@ -205,6 +205,37 @@ export function computeGeometryPose(geometry: THREE.BufferGeometry): { centroid:
 }
 
 /**
+ * Rotates a geometry around Y so its horizontal (X/Z) footprint's principal axis
+ * aligns with X — i.e. removes arch yaw. Uses the closed-form 2D PCA angle rather
+ * than the 3D power-iteration in `computeGeometryPose`, since we only care about
+ * rotation in a single plane here.
+ */
+function zeroArchYaw(geometry: THREE.BufferGeometry): void {
+  const pos = geometry.attributes.position;
+  const n = pos.count;
+  if (n === 0) return;
+
+  let mx = 0, mz = 0;
+  for (let i = 0; i < n; i++) {
+    mx += pos.getX(i);
+    mz += pos.getZ(i);
+  }
+  mx /= n; mz /= n;
+
+  let sxx = 0, sxz = 0, szz = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = pos.getX(i) - mx;
+    const dz = pos.getZ(i) - mz;
+    sxx += dx * dx;
+    sxz += dx * dz;
+    szz += dz * dz;
+  }
+
+  const theta = 0.5 * Math.atan2(2 * sxz, sxx - szz);
+  geometry.rotateY(theta);
+}
+
+/**
  * Automatically normalizes imported dental mesh orientation into standard Three.js dental studio coordinates:
  * - X: Transverse / Left-Right (Arch width)
  * - Y: Vertical / Superior-Inferior (Height)
@@ -233,6 +264,15 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
 
   geometry.computeBoundingBox();
   const sizeAfterHeight = new THREE.Vector3();
+  geometry.boundingBox!.getSize(sizeAfterHeight);
+
+  // 1b. Zero out arch yaw so every stage/arch shares one width axis (X).
+  // CAD exports commonly have a few degrees of yaw baked in; PCA on the
+  // horizontal (X/Z) footprint finds the arch's true long axis and rotates
+  // it onto X, which is what lets upper/lower (and stage-to-stage) meshes
+  // line up without a visible twist in "Both Arches" view.
+  zeroArchYaw(geometry);
+  geometry.computeBoundingBox();
   geometry.boundingBox!.getSize(sizeAfterHeight);
 
   // 2. Align Anterior (Incisors at front +Z) vs Posterior (Molars at back -Z)
@@ -298,7 +338,30 @@ export function normalizeDentalGeometry(geometry: THREE.BufferGeometry, arch: 'u
   }
 
   geometry.computeVertexNormals();
-  geometry.center();
+
+  // Final centering: center Y/Z on the bounding box as before, but center X on
+  // the dental midline (mean X of the anterior-most 3mm incisor band) rather
+  // than the bbox center. The horseshoe-shaped base skews the bbox center away
+  // from true anatomical midline, which is what previously left upper/lower
+  // arches laterally offset from each other in "Both Arches" view.
+  geometry.computeBoundingBox();
+  const finalBbox = geometry.boundingBox!;
+  const anteriorCutoffZ = finalBbox.max.z - 3;
+
+  let midlineSumX = 0;
+  let midlineCount = 0;
+  for (let i = 0; i < pos.count; i++) {
+    if (pos.getZ(i) > anteriorCutoffZ) {
+      midlineSumX += pos.getX(i);
+      midlineCount++;
+    }
+  }
+
+  const midlineX = midlineCount > 0 ? midlineSumX / midlineCount : (finalBbox.min.x + finalBbox.max.x) / 2;
+  const centerY = (finalBbox.min.y + finalBbox.max.y) / 2;
+  const centerZ = (finalBbox.min.z + finalBbox.max.z) / 2;
+
+  geometry.translate(-midlineX, -centerY, -centerZ);
 
   return geometry;
 }

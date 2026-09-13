@@ -4,6 +4,7 @@ import { ThreeEvent } from '@react-three/fiber';
 import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { normalizeDentalGeometry } from '@/utils/stlParser';
+import { computeOcclusionOffset } from '@/utils/occlusion';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 
 // Global cache for loaded and normalized STL geometries
@@ -218,25 +219,43 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     }
   };
 
-  // Calculate natural clinical centric occlusion heights:
-  const upperBBoxHeight = useMemo(() => {
-    if (!activeUpperGeom) return 15.6;
-    activeUpperGeom.computeBoundingBox();
-    const bbox = activeUpperGeom.boundingBox;
-    return bbox ? (bbox.max.y - bbox.min.y) : 15.6;
-  }, [activeUpperGeom]);
-
-  const lowerBBoxHeight = useMemo(() => {
-    if (!activeLowerGeom) return 13.2;
-    activeLowerGeom.computeBoundingBox();
-    const bbox = activeLowerGeom.boundingBox;
-    return bbox ? (bbox.max.y - bbox.min.y) : 13.2;
-  }, [activeLowerGeom]);
-
   const isBothVisible = (viewMode === 'both' || viewMode === 'split' || isSecondarySplit) && hasUpper && hasLower;
-  const upperPosY = isBothVisible ? (upperBBoxHeight * 0.352) : 0;
-  const lowerPosY = isBothVisible ? (-lowerBBoxHeight * 0.395) : 0;
-  const lowerPosZ = isBothVisible ? -0.5 : 0;
+
+  // Real cusp-to-fossa occlusion registration: drop the lower arch into contact
+  // with the upper (computeOcclusionOffset), then recenter the combined pair
+  // vertically so the bite - not either arch's own bbox center - sits at the
+  // scene origin (matching the camera/floor framing set up around y=0).
+  const occlusionOffset = useMemo(() => {
+    if (!activeUpperGeom || !activeLowerGeom) return null;
+    return computeOcclusionOffset(activeUpperGeom, activeLowerGeom);
+  }, [activeUpperGeom, activeLowerGeom]);
+
+  const { upperPosY, lowerPosX, lowerPosY, lowerPosZ, lowerRotation } = useMemo(() => {
+    if (!isBothVisible || !occlusionOffset || !activeUpperGeom || !activeLowerGeom) {
+      return { upperPosY: 0, lowerPosX: 0, lowerPosY: 0, lowerPosZ: 0, lowerRotation: [0, 0, 0] as [number, number, number] };
+    }
+
+    activeUpperGeom.computeBoundingBox();
+    activeLowerGeom.computeBoundingBox();
+    const uBox = activeUpperGeom.boundingBox!;
+    const lBox = activeLowerGeom.boundingBox!;
+    const { dx, dy, dz, pitchRad, rollRad } = occlusionOffset;
+
+    const combinedMinY = Math.min(uBox.min.y, lBox.min.y + dy);
+    const combinedMaxY = Math.max(uBox.max.y, lBox.max.y + dy);
+    const recenter = (combinedMinY + combinedMaxY) / 2;
+
+    return {
+      upperPosY: -recenter,
+      lowerPosX: dx,
+      lowerPosY: dy - recenter,
+      lowerPosZ: dz,
+      // Applied as rotation="[X, Y, Z]" with R3F's default 'XYZ' Euler order, which
+      // composes as Rz*Rx*v - matching the rotateX-then-rotateZ order the offset's
+      // pitch/roll were derived against in computeOcclusionOffset.
+      lowerRotation: [pitchRad, 0, rollRad] as [number, number, number],
+    };
+  }, [isBothVisible, occlusionOffset, activeUpperGeom, activeLowerGeom]);
 
   return (
     <group ref={groupRef} onPointerDown={handlePointerDown}>
@@ -261,7 +280,8 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
       {showLower && activeLowerGeom && (
         <group
           name="LowerArch"
-          position={[0, lowerPosY, lowerPosZ]}
+          position={[lowerPosX, lowerPosY, lowerPosZ]}
+          rotation={lowerRotation}
           onPointerMove={(e) => handlePointerMove(e, 'lower')}
           onPointerOut={handlePointerOut}
         >
