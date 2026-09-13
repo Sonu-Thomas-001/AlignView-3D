@@ -16,16 +16,9 @@ import {
   RefreshCw,
   SlidersHorizontal
 } from 'lucide-react';
-import { STLLoader } from 'three-stdlib';
-import * as THREE from 'three';
-import {
-  parseSTLFilename,
-  detectBatchPatientName,
-  computeDentalNormalization,
-  applyDentalNormalization,
-  computeGeometryPose,
-} from '@/utils/stlParser';
-import { segmentToothAndGum } from '@/utils/toothGumSegmentation';
+import { parseSTLFilename, detectBatchPatientName } from '@/utils/stlParser';
+import { geometryFromImport } from '@/utils/stlImportPipeline';
+import { createStlImportSession } from '@/utils/stlImportClient';
 import { STLFileInfo } from '@/types/dental';
 
 export const UploadModal: React.FC = () => {
@@ -144,8 +137,6 @@ export const UploadModal: React.FC = () => {
     const upperSTLs: STLFileInfo[] = [];
     const lowerSTLs: STLFileInfo[] = [];
 
-    const loader = new STLLoader();
-
     // Pass 1: resolve arch + stage for every file without touching geometry, so the
     // import order can be chosen deliberately below.
     let upperFallbackStage = 0;
@@ -191,104 +182,128 @@ export const UploadModal: React.FC = () => {
       ...plan.filter(p => !referenceIds.has(p.index)),
     ];
 
-    const archFrames: Partial<Record<'upper' | 'lower', THREE.Matrix4>> = {};
-    const archRefCenters: Partial<Record<'upper' | 'lower', THREE.Vector3>> = {};
-
     // A stage whose bbox centre lands this far from the reference stage's is not
     // actually in the same exported frame (some CAD tools re-origin every export).
     // Real tooth movement shifts a whole-arch bbox centre by well under a millimetre,
     // so this only catches genuinely mismatched frames.
     const FRAME_MISMATCH_MM = 5;
 
+    // Held as plain numbers because they cross a thread boundary on every stage.
+    const archFrames: Partial<Record<'upper' | 'lower', number[]>> = {};
+    const archRefCenters: Partial<Record<'upper' | 'lower', [number, number, number]>> = {};
+
+    // Parsing, placement and crown/gum segmentation run off this thread when the browser
+    // allows it. The session falls back to running here if the pool cannot start, so
+    // nothing below has to know which of the two happened.
+    const session = createStlImportSession();
+
+    // Results land in fixed slots rather than being appended as they arrive, so a case
+    // imported across several workers comes out in the same order as one imported on a
+    // single thread. Nondeterministic ordering here would show up as stages appearing to
+    // shuffle between loads of the same case.
+    const slots: (STLFileInfo | null)[] = new Array(ordered.length).fill(null);
+
+    let completed = 0;
+    let currentName = '';
+    const reportProgress = () => {
+      setProgress({
+        current: Math.min(completed + 1, ordered.length),
+        total: ordered.length,
+        currentFileName: currentName,
+      });
+    };
+
+    const importOne = async (slot: number) => {
+      const { file, index, arch, stage, isTemplate } = ordered[slot];
+      currentName = file.name;
+      reportProgress();
+
+      const buffer = await file.arrayBuffer();
+      const result = await session.run(buffer, {
+        arch,
+        frame: archFrames[arch] ?? null,
+        refCenter: archRefCenters[arch] ?? null,
+        mismatchMm: FRAME_MISMATCH_MM,
+      });
+
+      // The first stage of an arch to be imported is its reference, and it derives the
+      // frame every later stage of that arch is placed by. Guarded rather than assigned
+      // outright because a stage that rejected the shared frame reports a stage-local one,
+      // which must not become the arch's.
+      if (!archFrames[arch]) {
+        archFrames[arch] = result.frame;
+        archRefCenters[arch] = result.center;
+      }
+
+      const geometry = geometryFromImport(result);
+      const { split } = result;
+
+      slots[slot] = {
+        id: `stl_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
+        name: file.name,
+        arch,
+        stage,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        verticesCount: result.verticesCount,
+        trianglesCount: result.trianglesCount,
+        dimensions: {
+          width: parseFloat(result.size[0].toFixed(1)),
+          depth: parseFloat(result.size[2].toFixed(1)),
+          height: parseFloat(result.size[1].toFixed(1)),
+        },
+        isTemplate,
+        customBufferGeometry: geometry,
+        centroid: { x: result.centroid[0], y: result.centroid[1], z: result.centroid[2] },
+        principalAxis: {
+          x: result.principalAxis[0],
+          y: result.principalAxis[1],
+          z: result.principalAxis[2],
+        },
+        usesSharedFrame: result.usesSharedFrame,
+        frameShiftMm: parseFloat(result.frameShiftMm.toFixed(3)),
+        toothTriangles: split?.toothTriangles,
+        gumTriangles: split?.gumTriangles,
+        gingivalMarginMm: split ? parseFloat(split.meanMarginMm.toFixed(2)) : undefined,
+        marginDetectedFraction: split ? parseFloat(split.detectedFraction.toFixed(3)) : undefined,
+      };
+
+      completed++;
+      reportProgress();
+    };
+
+    /**
+     * Runs the given slots with at most `limit` in flight.
+     *
+     * The limit is what keeps peak memory bounded: each running slot holds a raw STL buffer
+     * and a parsed arch on top of every stage already imported, so dispatching all of them
+     * at once would read a whole case into memory twice over.
+     */
+    const runSlots = async (slotList: number[], limit: number) => {
+      let next = 0;
+      const lanes = Array.from({ length: Math.max(1, Math.min(limit, slotList.length)) }, async () => {
+        while (next < slotList.length) {
+          await importOne(slotList[next++]);
+        }
+      });
+      await Promise.all(lanes);
+    };
+
+    const slotIndices = ordered.map((_, slot) => slot);
+    const referenceSlots = slotIndices.filter(slot => referenceIds.has(ordered[slot].index));
+    const dependentSlots = slotIndices.filter(slot => !referenceIds.has(ordered[slot].index));
+
     try {
-      for (let i = 0; i < ordered.length; i++) {
-        const { file, arch, stage, isTemplate } = ordered[i];
-        setProgress({
-          current: i + 1,
-          total: ordered.length,
-          currentFileName: file.name,
-        });
+      // References first, since every other stage of their arch is placed by the frame
+      // derived from them. The upper and lower references do not depend on each other, so
+      // the two of them still run together.
+      await runSlots(referenceSlots, referenceSlots.length);
+      await runSlots(dependentSlots, session.concurrency);
 
-        // Yield to let the UI update progress bar smoothly
-        await new Promise(resolve => setTimeout(resolve, 10));
-
-        const buffer = await file.arrayBuffer();
-        const geometry = loader.parse(buffer);
-        const rawPose = computeGeometryPose(geometry);
-
-        let usesSharedFrame = true;
-        let frameShiftMm = 0;
-
-        const existingFrame = archFrames[arch];
-        if (!existingFrame) {
-          const frame = computeDentalNormalization(geometry, arch);
-          archFrames[arch] = frame;
-          applyDentalNormalization(geometry, frame);
-          const center = new THREE.Vector3();
-          geometry.boundingBox!.getCenter(center);
-          archRefCenters[arch] = center;
-        } else {
-          applyDentalNormalization(geometry, existingFrame);
-          const center = new THREE.Vector3();
-          geometry.boundingBox!.getCenter(center);
-          const refCenter = archRefCenters[arch];
-          frameShiftMm = refCenter ? center.distanceTo(refCenter) : 0;
-
-          if (frameShiftMm > FRAME_MISMATCH_MM) {
-            // Undo the shared placement and fall back to a self-derived one. The
-            // stage will look correct on its own but its movement readings against
-            // the rest of the sequence cannot be trusted, which `usesSharedFrame`
-            // records for the UI.
-            geometry.applyMatrix4(existingFrame.clone().invert());
-            applyDentalNormalization(geometry, computeDentalNormalization(geometry, arch));
-            usesSharedFrame = false;
-          }
-        }
-
-        // Split crown from gingiva now that the arch is placed. This has to happen
-        // before anything measures or renders the geometry: it reorders triangles in
-        // place, which would invalidate a bounding volume hierarchy built beforehand.
-        const split = segmentToothAndGum(geometry, arch);
-
-        const bbox = geometry.boundingBox || new THREE.Box3();
-        const size = new THREE.Vector3();
-        bbox.getSize(size);
-
-        const pos = geometry.attributes.position;
-        const vertCount = pos.count;
-        const triCount = geometry.index ? geometry.index.count / 3 : vertCount / 3;
-
-        const stlInfo: STLFileInfo = {
-          id: `stl_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
-          name: file.name,
-          arch,
-          stage,
-          date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-          fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          verticesCount: vertCount,
-          trianglesCount: Math.round(triCount),
-          dimensions: {
-            width: parseFloat(size.x.toFixed(1)),
-            depth: parseFloat(size.z.toFixed(1)),
-            height: parseFloat(size.y.toFixed(1)),
-          },
-          isTemplate,
-          customBufferGeometry: geometry,
-          centroid: { x: rawPose.centroid.x, y: rawPose.centroid.y, z: rawPose.centroid.z },
-          principalAxis: { x: rawPose.principalAxis.x, y: rawPose.principalAxis.y, z: rawPose.principalAxis.z },
-          usesSharedFrame,
-          frameShiftMm: parseFloat(frameShiftMm.toFixed(3)),
-          toothTriangles: split?.toothTriangles,
-          gumTriangles: split?.gumTriangles,
-          gingivalMarginMm: split ? parseFloat(split.meanMarginMm.toFixed(2)) : undefined,
-          marginDetectedFraction: split ? parseFloat(split.detectedFraction.toFixed(3)) : undefined,
-        };
-
-        if (arch === 'upper') {
-          upperSTLs.push(stlInfo);
-        } else {
-          lowerSTLs.push(stlInfo);
-        }
+      for (const info of slots) {
+        if (!info) continue;
+        if (info.arch === 'upper') upperSTLs.push(info);
+        else lowerSTLs.push(info);
       }
 
       addBatchSTLs({
@@ -304,6 +319,9 @@ export const UploadModal: React.FC = () => {
       console.error('Failed to parse STL batch:', err);
       setError('Error parsing one or more STL files. Please verify the binary/ASCII STL format.');
       setLoading(false);
+    } finally {
+      // Workers outlive the function that started them unless they are told otherwise.
+      session.dispose();
     }
   };
 

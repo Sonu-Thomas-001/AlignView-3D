@@ -8,18 +8,15 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { STLLoader } from 'three-stdlib';
 import {
   parseSTLFilename,
   detectBatchPatientName,
   sortSTLFilesByStage,
-  computeDentalNormalization,
-  applyDentalNormalization,
-  computeGeometryPose,
 } from '../src/utils/stlParser';
+import { importArchStage, geometryFromImport } from '../src/utils/stlImportPipeline';
 import { computeStageMovement, computeMovementColors } from '../src/utils/movementAnalytics';
 import { computeOcclusionOffset } from '../src/utils/occlusion';
-import { segmentToothAndGum, type ToothGumSplit } from '../src/utils/toothGumSegmentation';
+import { type ToothGumSplit } from '../src/utils/toothGumSegmentation';
 import { STLFileInfo } from '../src/types/dental';
 import * as THREE from 'three';
 
@@ -38,15 +35,17 @@ const detectedPatient = detectBatchPatientName(filenames);
 console.log(`\nDetected batch patient name: ${detectedPatient}`);
 
 console.log('\n--- Loading + normalizing geometry + computing pose ---');
-const loader = new STLLoader();
 const upperFiles: STLFileInfo[] = [];
 const lowerFiles: STLFileInfo[] = [];
 
 // Mirrors the import pipeline: one placement transform per arch, derived from the
 // earliest non-template stage, applied to every stage of that arch. Deriving it per
 // stage would re-centre each stage and cancel out the tooth movement being measured.
-const archFrames: Partial<Record<'upper' | 'lower', THREE.Matrix4>> = {};
-const archRefCenters: Partial<Record<'upper' | 'lower', THREE.Vector3>> = {};
+const archFrames: Partial<Record<'upper' | 'lower', number[]>> = {};
+const archRefCenters: Partial<Record<'upper' | 'lower', [number, number, number]>> = {};
+
+/** Same threshold the upload modal uses, so this script rejects what the app rejects. */
+const FRAME_MISMATCH_MM = 5;
 const splits = new Map<string, ToothGumSplit>();
 
 /** Surface area (mm2) of a contiguous run of triangles, used to check the split. */
@@ -87,27 +86,27 @@ for (const name of importOrder) {
   const buffer = fs.readFileSync(path.join(STL_DIR, name));
   const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 
-  const geometry = loader.parse(arrayBuffer);
-  const rawPose = computeGeometryPose(geometry);
+  // The exact function the app's import worker runs, including the crown/gingiva split
+  // and the mismatched-frame fallback. Calling it here rather than re-deriving the steps
+  // means this script cannot pass on logic a provider never actually gets.
+  const result = importArchStage(arrayBuffer, {
+    arch,
+    frame: archFrames[arch] ?? null,
+    refCenter: archRefCenters[arch] ?? null,
+    mismatchMm: FRAME_MISMATCH_MM,
+  });
 
-  if (!archFrames[arch]) archFrames[arch] = computeDentalNormalization(geometry, arch);
-  applyDentalNormalization(geometry, archFrames[arch]!);
+  if (!archFrames[arch]) {
+    archFrames[arch] = result.frame;
+    archRefCenters[arch] = result.center;
+  }
 
-  const placedCenter = new THREE.Vector3();
-  geometry.boundingBox!.getCenter(placedCenter);
-  if (!archRefCenters[arch]) archRefCenters[arch] = placedCenter.clone();
-  const frameShift = placedCenter.distanceTo(archRefCenters[arch]!);
-
-  // Crown / gingiva split, run here for the same reason the app runs it during import:
-  // it reorders triangles, so it has to happen before any BVH is built over the mesh.
-  const split = segmentToothAndGum(geometry, arch);
+  const geometry = geometryFromImport(result);
+  const frameShift = result.frameShiftMm;
+  const split = result.split;
   if (split) splits.set(name, split);
 
-  geometry.computeBoundingBox();
-  const bbox = geometry.boundingBox!;
-  const width = bbox.max.x - bbox.min.x;
-  const height = bbox.max.y - bbox.min.y;
-  const depth = bbox.max.z - bbox.min.z;
+  const [width, height, depth] = result.size;
 
   const info: STLFileInfo = {
     id: `stl_${name}`,
@@ -116,12 +115,20 @@ for (const name of importOrder) {
     stage: meta.stage ?? 1,
     date: '',
     fileSize: '',
-    verticesCount: geometry.attributes.position.count,
-    trianglesCount: Math.round(geometry.attributes.position.count / 3),
+    verticesCount: result.verticesCount,
+    trianglesCount: result.trianglesCount,
     dimensions: { width, depth, height },
     isTemplate: meta.isTemplate,
-    centroid: { x: rawPose.centroid.x, y: rawPose.centroid.y, z: rawPose.centroid.z },
-    principalAxis: { x: rawPose.principalAxis.x, y: rawPose.principalAxis.y, z: rawPose.principalAxis.z },
+    centroid: { x: result.centroid[0], y: result.centroid[1], z: result.centroid[2] },
+    principalAxis: {
+      x: result.principalAxis[0],
+      y: result.principalAxis[1],
+      z: result.principalAxis[2],
+    },
+    usesSharedFrame: result.usesSharedFrame,
+    frameShiftMm: parseFloat(result.frameShiftMm.toFixed(3)),
+    toothTriangles: split?.toothTriangles,
+    gumTriangles: split?.gumTriangles,
     customBufferGeometry: geometry,
   };
 
@@ -133,7 +140,7 @@ for (const name of importOrder) {
   // A shared frame is only shared if every stage lands in the same place. Real tooth
   // movement barely shifts a whole-arch bbox centre, so anything past a few mm means
   // the exporter re-origined that file and it needs its own placement.
-  const frameOk = frameShift < 5;
+  const frameOk = result.usesSharedFrame;
   console.log(
     `${name}: stage=${info.stage} verts=${info.verticesCount} dims(w/h/d)=${width.toFixed(1)}/${height.toFixed(1)}/${depth.toFixed(1)}mm frameShift=${frameShift.toFixed(3)}mm ${plausible ? 'OK' : '** SUSPICIOUS DIMENSIONS **'} ${frameOk ? '' : '** FRAME MISMATCH **'}`
   );
