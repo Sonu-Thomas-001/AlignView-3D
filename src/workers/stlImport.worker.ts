@@ -1,3 +1,6 @@
+// Must stay above every other import: it shims `window` for the library modules below,
+// which the bundler compiles as if a browser global were guaranteed. See workerGlobals.ts.
+import './workerGlobals';
 import {
   importArchStage,
   transferablesOf,

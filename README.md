@@ -340,7 +340,13 @@ npm run build                               # production build, including its ow
 npx tsx scripts/e2e-real-data-check.ts      # geometry pipeline against a real case in /STL
 npx tsx scripts/worker-roundtrip-check.ts   # worker/main-thread geometry contract
 npx tsx scripts/import-session-check.ts     # import dispatch, including a broken worker pool
+npx tsx scripts/browser-worker-check.ts     # a real stage through a real worker in headless Chrome
 ```
+
+The last one needs a server running (`npx next dev`, or `npx next build && npx next start`
+with `--url http://localhost:3200`) and Chrome or Edge installed; it skips cleanly without
+them. It is the only check that exercises the bundler's worker wiring, which has broken
+before in a way that produced no error anywhere — see `src/workers/workerGlobals.ts`.
 
 ---
 
