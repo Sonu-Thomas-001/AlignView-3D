@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { ViewMode, RenderMode, ActiveTool, STLFileInfo, Measurement, MeasurementPoint, HoveredTooth } from '@/types/dental';
 import { sortSTLFilesByStage } from '@/utils/stlParser';
+import { clearMovementCache } from '@/utils/movementAnalytics';
 
 const INITIAL_UPPER_FILES: STLFileInfo[] = [];
 const INITIAL_LOWER_FILES: STLFileInfo[] = [];
@@ -86,6 +87,16 @@ interface ViewerState {
   tintGums: boolean;
   setTintGums: (on: boolean) => void;
 
+  /**
+   * Displacement (mm) at the top of the movement heat map's ramp, published by the
+   * viewport so the legend can label the colours with real numbers instead of adjectives.
+   * Null when the current stage has nothing comparable to measure against.
+   */
+  movementScaleMm: number | null;
+  /** Stage the heat map is measured against. */
+  movementFromStage: number | null;
+  setMovementScale: (scaleMm: number | null, fromStage: number | null) => void;
+
   // Actions
   setViewMode: (mode: ViewMode) => void;
   setRenderMode: (mode: RenderMode) => void;
@@ -132,6 +143,13 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setGumColor: (color) => set({ gumColor: color }),
   tintGums: true,
   setTintGums: (on) => set({ tintGums: on }),
+
+  movementScaleMm: null,
+  movementFromStage: null,
+  setMovementScale: (scaleMm, fromStage) =>
+    set((s) => (s.movementScaleMm === scaleMm && s.movementFromStage === fromStage
+      ? s
+      : { movementScaleMm: scaleMm, movementFromStage: fromStage })),
 
   patientName: '',
   setPatientName: (name) => set({ patientName: name }),
@@ -361,6 +379,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     if (replaceExisting) {
       get().upperFiles.forEach(f => f.customBufferGeometry?.dispose?.());
       get().lowerFiles.forEach(f => f.customBufferGeometry?.dispose?.());
+      // Measurements and heat-map colours are memoised per file pair. The old case's
+      // entries can never be hit again once its files are gone, so they are pure leak.
+      clearMovementCache();
     }
     const currentUpper = replaceExisting ? [] : get().upperFiles;
     const currentLower = replaceExisting ? [] : get().lowerFiles;
@@ -404,6 +425,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   deleteSTL: (arch, id) => {
     const removed = (arch === 'upper' ? get().upperFiles : get().lowerFiles).find(f => f.id === id);
     removed?.customBufferGeometry?.dispose?.();
+    if (removed) clearMovementCache(removed.id);
 
     if (arch === 'upper') {
       const next = get().upperFiles.filter(f => f.id !== id);
@@ -448,7 +470,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   deleteAllSTLs: (arch) => {
     if (arch === 'upper') {
-      get().upperFiles.forEach(f => f.customBufferGeometry?.dispose?.());
+      get().upperFiles.forEach(f => {
+        f.customBufferGeometry?.dispose?.();
+        clearMovementCache(f.id);
+      });
       const remainingLower = get().lowerFiles;
       set({
         upperFiles: [],
@@ -459,7 +484,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         } : {})
       });
     } else {
-      get().lowerFiles.forEach(f => f.customBufferGeometry?.dispose?.());
+      get().lowerFiles.forEach(f => {
+        f.customBufferGeometry?.dispose?.();
+        clearMovementCache(f.id);
+      });
       const remainingUpper = get().upperFiles;
       set({
         lowerFiles: [],

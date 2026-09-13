@@ -10,6 +10,7 @@ import { FloatingToolPalette } from '@/components/viewport/FloatingToolPalette';
 import { ViewModePill } from '@/components/viewport/ViewModePill';
 import { ViewCubeGizmo } from '@/components/viewport/ViewCubeGizmo';
 import { RenderModePill } from '@/components/viewport/RenderModePill';
+import { MovementLegend } from '@/components/viewport/MovementLegend';
 import { ModelStatsCard } from '@/components/viewport/ModelStatsCard';
 import { SectionSlider } from '@/components/viewport/SectionSlider';
 import { MeasurementOverlay } from '@/components/viewport/MeasurementOverlay';
@@ -69,7 +70,10 @@ export default function STLStudioPage() {
             {/* Bottom Left Model Telemetry Card (Vertices, Triangles, Size) */}
             <ModelStatsCard />
 
-            {/* Bottom Right Render Mode Switcher (Shaded, Wireframe, Solid, X-Ray) */}
+            {/* Bottom Centre Colour Key for the Movement Heat Map */}
+            <MovementLegend />
+
+            {/* Bottom Right Render Mode Switcher (Shaded, Wireframe, Solid, X-Ray, Movement) */}
             <RenderModePill />
           </div>
 

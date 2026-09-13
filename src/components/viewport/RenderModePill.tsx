@@ -3,7 +3,7 @@
 import React from 'react';
 import { useViewerStore } from '@/store/useViewerStore';
 import { RenderMode } from '@/types/dental';
-import { Box, Eye } from 'lucide-react';
+import { Activity, Box, Eye } from 'lucide-react';
 import { ModelColorPicker } from './ModelColorPicker';
 
 const ShadedIcon = ({ className }: { className?: string }) => (
@@ -32,6 +32,7 @@ const RENDER_OPTIONS: RenderOption[] = [
   { id: 'wireframe', label: 'Wireframe', icon: <WireframeIcon className="w-3.5 h-3.5" /> },
   { id: 'solid', label: 'Solid', icon: <Box className="w-3.5 h-3.5" /> },
   { id: 'xray', label: 'X-Ray', icon: <Eye className="w-3.5 h-3.5" /> },
+  { id: 'movement', label: 'Movement', icon: <Activity className="w-3.5 h-3.5" /> },
 ];
 
 export const RenderModePill: React.FC = () => {

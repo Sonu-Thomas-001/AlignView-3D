@@ -1,7 +1,7 @@
 import type { BufferGeometry } from 'three';
 
 export type ViewMode = 'both' | 'upper' | 'lower' | 'split';
-export type RenderMode = 'shaded' | 'wireframe' | 'solid' | 'xray';
+export type RenderMode = 'shaded' | 'wireframe' | 'solid' | 'xray' | 'movement';
 export type ActiveTool = 'move' | 'rotate' | 'zoom' | 'pan' | 'measure' | 'section';
 
 export interface Vec3Tuple {

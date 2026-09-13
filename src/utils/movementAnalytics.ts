@@ -379,7 +379,85 @@ export function computeDisplacementColors(
   return colors;
 }
 
-/** Clears memoised displacement results. Call when the loaded case is replaced. */
-export function clearMovementCache(): void {
-  resultCache.clear();
+/**
+ * Per-vertex colours ready to hand to a mesh, resolved from a stage number rather than
+ * from two geometries. Memoised, because a full pass is a nearest-triangle query per
+ * vertex over a few hundred thousand vertices and the stage is re-rendered on every
+ * camera move.
+ */
+const colorCache = new Map<string, Float32Array | null>();
+
+export interface MovementColors {
+  colors: Float32Array;
+  /** Displacement (mm) that maps to the top of the ramp. */
+  scaleMm: number;
+  /** Stage the colours are measured against. */
+  fromStage: number | null;
+}
+
+/**
+ * Movement heat-map colours for one arch at one stage.
+ *
+ * Measured against stage 1 by default, matching the hover readout, so the number in the
+ * tooltip and the colour under the cursor describe the same thing. The ramp is scaled to
+ * the 95th percentile of this comparison rather than to its peak: scaling to the peak
+ * would let one composite attachment or a trim artefact wash the whole arch out to the
+ * cool end of the ramp.
+ */
+export function computeMovementColors(
+  files: STLFileInfo[],
+  arch: 'upper' | 'lower',
+  stage: number,
+  relativeToStart = true,
+): MovementColors | null {
+  const toFile = fileAtStage(files, stage);
+  const fromFile = relativeToStart ? firstStageFile(files) : fileBeforeStage(files, stage);
+  if (!fromFile?.customBufferGeometry || !toFile?.customBufferGeometry) return null;
+  if (fromFile.id === toFile.id) return null;
+  if (fromFile.usesSharedFrame === false || toFile.usesSharedFrame === false) return null;
+
+  const displacement = displacementBetween(arch, fromFile, toFile);
+  if (!displacement) return null;
+
+  // Floor the ramp so a stage that barely moves does not amplify sub-micron noise into
+  // a full-scale red arch.
+  const scaleMm = Math.max(0.2, displacement.p95Mm);
+
+  const key = `${arch}:${fromFile.id}->${toFile.id}:${scaleMm.toFixed(3)}`;
+  let colors = colorCache.get(key);
+  if (colors === undefined) {
+    colors = computeDisplacementColors(
+      fromFile.customBufferGeometry,
+      toFile.customBufferGeometry,
+      scaleMm,
+    );
+    colorCache.set(key, colors);
+  }
+  if (!colors) return null;
+
+  return { colors, scaleMm, fromStage: fromFile.stage ?? null };
+}
+
+/**
+ * Drops memoised displacement results and heat-map colours.
+ *
+ * Must be called when files are removed. Both caches are keyed by file id, so nothing
+ * goes stale if they are left alone, but they hold the results strongly: a case's colour
+ * buffers alone are about 3.5MB per stage, so a session that imports several cases would
+ * keep every one of them alive for as long as the tab is open.
+ *
+ * Pass a file id to drop only the entries measured from or against that file.
+ */
+export function clearMovementCache(fileId?: string): void {
+  if (!fileId) {
+    resultCache.clear();
+    colorCache.clear();
+    return;
+  }
+  for (const key of [...resultCache.keys()]) {
+    if (key.includes(fileId)) resultCache.delete(key);
+  }
+  for (const key of [...colorCache.keys()]) {
+    if (key.includes(fileId)) colorCache.delete(key);
+  }
 }

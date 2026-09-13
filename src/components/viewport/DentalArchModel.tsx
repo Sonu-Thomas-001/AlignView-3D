@@ -6,6 +6,8 @@ import { useViewerStore } from '@/store/useViewerStore';
 import { computeDentalNormalization, applyDentalNormalization, pickFileForStage } from '@/utils/stlParser';
 import { computeOcclusionOffset } from '@/utils/occlusion';
 import { segmentToothAndGum } from '@/utils/toothGumSegmentation';
+import { computeMovementColors } from '@/utils/movementAnalytics';
+import { STLFileInfo } from '@/types/dental';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 
 // Global cache for loaded and normalized STL geometries
@@ -86,6 +88,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     toothColor,
     gumColor,
     tintGums,
+    setMovementScale,
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
@@ -242,6 +245,67 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   const clippingPlanesArray = useMemo(() => (clippingPlane ? [clippingPlane] : []), [clippingPlane]);
 
   /**
+   * Movement heat map: a per-vertex colour attribute on the displayed geometry, measured
+   * against stage 1 so the colour under the cursor and the number in the hover readout
+   * describe the same movement.
+   *
+   * Written during render rather than from an effect because the materials below turn
+   * vertex colours on in the same pass. From an effect there would be a frame where the
+   * material reads a colour attribute that does not exist yet, which draws the arch
+   * black. The underlying measurement is memoised per stage pair, so switching back to a
+   * stage already seen costs nothing.
+   */
+  const movementColors = useMemo(() => {
+    if (renderMode !== 'movement') return null;
+
+    let scaleMm = 0;
+    let fromStage: number | null = null;
+    let upperPainted = false;
+    let lowerPainted = false;
+
+    const apply = (
+      geometry: THREE.BufferGeometry | null,
+      files: STLFileInfo[],
+      file: STLFileInfo | undefined,
+      arch: 'upper' | 'lower',
+    ): boolean => {
+      if (!geometry || !file) return false;
+      const result = computeMovementColors(files, arch, file.stage ?? 1);
+      if (!result || result.colors.length !== geometry.attributes.position.count * 3) {
+        geometry.deleteAttribute('color');
+        return false;
+      }
+      geometry.setAttribute('color', new THREE.BufferAttribute(result.colors, 3));
+      scaleMm = Math.max(scaleMm, result.scaleMm);
+      fromStage = result.fromStage;
+      return true;
+    };
+
+    upperPainted = apply(activeUpperGeom, upperFiles, selectedUpperFile, 'upper');
+    lowerPainted = apply(activeLowerGeom, lowerFiles, selectedLowerFile, 'lower');
+
+    if (!upperPainted && !lowerPainted) return null;
+    return { scaleMm, fromStage, upperPainted, lowerPainted };
+  }, [
+    renderMode,
+    activeUpperGeom,
+    activeLowerGeom,
+    upperFiles,
+    lowerFiles,
+    selectedUpperFile,
+    selectedLowerFile,
+  ]);
+
+  // Publish the ramp's top value so the legend can put millimetres on the colours.
+  useEffect(() => {
+    if (renderMode !== 'movement') {
+      setMovementScale(null, null);
+      return;
+    }
+    setMovementScale(movementColors?.scaleMm ?? null, movementColors?.fromStage ?? null);
+  }, [renderMode, movementColors, setMovementScale]);
+
+  /**
    * Two materials per arch, in the order `segmentToothAndGum` writes the geometry's
    * groups: crown first, gingiva second. Enamel and soft tissue do not respond to light
    * the same way, so a single material makes one of them look wrong - enamel needs a
@@ -334,6 +398,33 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     ];
   }, [renderMode, clippingPlanesArray, toothColor, gumColor, tintGums]);
 
+  /**
+   * Heat-map materials, kept separate from the shaded set so an arch with nothing to
+   * compare against can keep the shaded one. A mesh drawn with `vertexColors` and no
+   * colour attribute comes out black, which would look like a load failure.
+   *
+   * Both crown and gingiva read their colour from the mesh, so the static gum comes out
+   * grey and the moving crowns stand against it. Deliberately matte: a clearcoat
+   * highlight over a heat map reads as a bright spot and gets mistaken for movement.
+   */
+  const heatMapMaterials = useMemo(() => {
+    if (renderMode !== 'movement') return null;
+    const build = () => new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.55,
+      metalness: 0,
+      clippingPlanes: clippingPlanesArray,
+      clipShadows: true,
+    });
+    return [build(), build()];
+  }, [renderMode, clippingPlanesArray]);
+
+  useEffect(() => {
+    return () => {
+      if (heatMapMaterials) for (const material of heatMapMaterials) material.dispose();
+    };
+  }, [heatMapMaterials]);
+
   // Dispose the previous materials whenever new ones are created, and on unmount
   useEffect(() => {
     return () => {
@@ -400,7 +491,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         >
           <mesh
             geometry={activeUpperGeom}
-            material={archMaterials}
+            material={
+              heatMapMaterials && movementColors?.upperPainted ? heatMapMaterials : archMaterials
+            }
             castShadow
             receiveShadow
           />
@@ -418,7 +511,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         >
           <mesh
             geometry={activeLowerGeom}
-            material={archMaterials}
+            material={
+              heatMapMaterials && movementColors?.lowerPainted ? heatMapMaterials : archMaterials
+            }
             castShadow
             receiveShadow
           />

@@ -17,7 +17,7 @@ import {
   applyDentalNormalization,
   computeGeometryPose,
 } from '../src/utils/stlParser';
-import { computeStageMovement } from '../src/utils/movementAnalytics';
+import { computeStageMovement, computeMovementColors } from '../src/utils/movementAnalytics';
 import { computeOcclusionOffset } from '../src/utils/occlusion';
 import { segmentToothAndGum, type ToothGumSplit } from '../src/utils/toothGumSegmentation';
 import { STLFileInfo } from '../src/types/dental';
@@ -216,10 +216,60 @@ for (const f of sortedUpper) {
   );
 }
 
+// --- Movement heat map ---
+// The colours the viewer paints, checked for the two ways this can be useless: an arch
+// where nothing is coloured (so the preview shows no correction at all) and an arch where
+// everything is coloured (so nothing stands out and the map says nothing). The grey share
+// is the fraction of the surface the map calls unchanged, and on a real arch most of it
+// should be grey, because most of a trimmed model is base and gum that does not move.
+console.log('\n--- Movement heat map colours (upper arch, vs stage 1) ---');
+let heatMapWarnings = 0;
+const GREY = [0.78, 0.8, 0.84];
+
+for (const f of sortedUpper) {
+  const result = computeMovementColors(sortedUpper, 'upper', f.stage);
+  if (!result) {
+    // Expected on stage 1, which has nothing earlier to compare against.
+    const expected = f.stage <= 1 || f.isTemplate;
+    if (!expected) heatMapWarnings++;
+    console.log(`stage ${f.stage}: no heat map ${expected ? '(expected)' : '** UNEXPECTED **'}`);
+    continue;
+  }
+
+  const vertexCount = result.colors.length / 3;
+  let grey = 0;
+  let hot = 0;
+  for (let i = 0; i < vertexCount; i++) {
+    const r = result.colors[i * 3];
+    const g = result.colors[i * 3 + 1];
+    const b = result.colors[i * 3 + 2];
+    if (Math.abs(r - GREY[0]) < 0.01 && Math.abs(g - GREY[1]) < 0.01 && Math.abs(b - GREY[2]) < 0.01) {
+      grey++;
+    } else if (r > 0.85 && g < 0.35) {
+      hot++;
+    }
+  }
+  const greyShare = grey / vertexCount;
+  const hotShare = hot / vertexCount;
+
+  const usefulSpread = greyShare > 0.05 && greyShare < 0.995;
+  const scaleOk = result.scaleMm >= 0.2 && result.scaleMm < 8;
+  if (!usefulSpread || !scaleOk) heatMapWarnings++;
+
+  console.log(
+    `stage ${String(f.stage).padStart(2)}: scale=${result.scaleMm.toFixed(2)}mm ` +
+    `unchanged=${(greyShare * 100).toFixed(1)}% at-top-of-ramp=${(hotShare * 100).toFixed(2)}% ` +
+    `${usefulSpread ? '' : '** NO USEFUL SPREAD **'}${scaleOk ? '' : ' ** SCALE OFF **'}`,
+  );
+}
+
 console.log(
   `\nPer-stage budget breaches: ${budgetBreaches} | total-movement regressions: ${monotonicBreaks} ` +
   `| segmentation warnings: ${segmentationWarnings} ` +
-  `${budgetBreaches === 0 && monotonicBreaks === 0 && segmentationWarnings === 0 ? 'OK' : '** REVIEW **'}`
+  `| heat map warnings: ${heatMapWarnings} ` +
+  `${budgetBreaches === 0 && monotonicBreaks === 0 && segmentationWarnings === 0 && heatMapWarnings === 0
+    ? 'OK'
+    : '** REVIEW **'}`
 );
 
 // --- Bite/occlusion verification ---
