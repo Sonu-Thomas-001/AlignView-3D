@@ -40,6 +40,17 @@ export interface STLFileInfo {
   usesSharedFrame?: boolean;
   /** Distance (mm) from the reference stage's bounding-box centre after placement. */
   frameShiftMm?: number;
+  /**
+   * Crown / gingiva split found by `segmentToothAndGum`, kept for provenance: it is what
+   * decides where the tooth colour stops and the gum colour starts, so a case that looks
+   * wrong can be checked without re-running the estimator.
+   */
+  toothTriangles?: number;
+  gumTriangles?: number;
+  /** Mean depth (mm) of the estimated gingival margin below the occlusal surface. */
+  gingivalMarginMm?: number;
+  /** Fraction of angular bins where the margin was measured rather than interpolated. */
+  marginDetectedFraction?: number;
 }
 
 export interface HoveredTooth {

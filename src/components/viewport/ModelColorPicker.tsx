@@ -21,12 +21,52 @@ export const DENTAL_SHADES: DentalShade[] = [
   { name: 'Slate Graphite', hex: '#475569', description: 'Light Mode Contrast' },
 ];
 
+/**
+ * Gingiva presets. Healthy attached gingiva is coral pink; the darker shades cover the
+ * pigmented gingiva that is normal in many patients, and Model Pink matches the wax a
+ * printed study model is usually finished in.
+ */
+export const GUM_SHADES: DentalShade[] = [
+  { name: 'Coral Pink', hex: '#D98E96', description: 'Healthy Gingiva' },
+  { name: 'Model Pink', hex: '#E7A9AF', description: 'Printed Model Wax' },
+  { name: 'Soft Blush', hex: '#EFBFC2', description: 'Light Presentation' },
+  { name: 'Salmon', hex: '#CF7D80', description: 'Warm Mucosa' },
+  { name: 'Rose Clay', hex: '#B96C74', description: 'Deep Tissue' },
+  { name: 'Pigmented', hex: '#8E5B60', description: 'Melanin Pigmented' },
+  { name: 'Pale Ivory', hex: '#E6D9CE', description: 'Neutral / Blend In' },
+  { name: 'Slate', hex: '#64748B', description: 'High-Contrast Study' },
+];
+
+/** Whether a tick drawn on this swatch needs to be dark to stay visible. */
+function isLightSwatch(hex: string): boolean {
+  const value = hex.replace('#', '');
+  if (value.length !== 6) return false;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.72;
+}
+
 export const ModelColorPicker: React.FC = () => {
-  const { modelColor, setModelColor, studioTheme, toggleStudioTheme } = useViewerStore();
+  const {
+    toothColor,
+    setToothColor,
+    gumColor,
+    setGumColor,
+    tintGums,
+    setTintGums,
+    studioTheme,
+    toggleStudioTheme,
+  } = useViewerStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [target, setTarget] = useState<'tooth' | 'gum'>('tooth');
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const isDark = studioTheme === 'dark';
+  const editingGum = target === 'gum';
+  const activeColor = editingGum ? gumColor : toothColor;
+  const setActiveColor = editingGum ? setGumColor : setToothColor;
+  const shades = editingGum ? GUM_SHADES : DENTAL_SHADES;
 
   // Close on outside click
   useEffect(() => {
@@ -58,10 +98,16 @@ export const ModelColorPicker: React.FC = () => {
         }`}
         title="Change Model Color & Theme"
       >
-        <span 
-          className="w-3.5 h-3.5 rounded-full border border-slate-400/50 shadow-2xs shrink-0" 
-          style={{ backgroundColor: modelColor }} 
-        />
+        <span className="flex items-center -space-x-1 shrink-0">
+          <span
+            className="w-3.5 h-3.5 rounded-full border border-slate-400/50 shadow-2xs"
+            style={{ backgroundColor: toothColor }}
+          />
+          <span
+            className="w-3.5 h-3.5 rounded-full border border-slate-400/50 shadow-2xs"
+            style={{ backgroundColor: tintGums ? gumColor : toothColor }}
+          />
+        </span>
         <Palette className="w-3.5 h-3.5" />
         <span className="hidden md:inline">Color</span>
       </button>
@@ -75,7 +121,7 @@ export const ModelColorPicker: React.FC = () => {
         }`}>
           {/* Header with Theme Switcher */}
           <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200/50 dark:border-slate-800">
-            <span className="text-xs font-bold tracking-tight">Model Shade & Theme</span>
+            <span className="text-xs font-bold tracking-tight">Shades & Theme</span>
             
             {/* Dark / Light Mode Switcher */}
             <button
@@ -92,14 +138,59 @@ export const ModelColorPicker: React.FC = () => {
             </button>
           </div>
 
+          {/* Which surface the swatches below apply to */}
+          <div className={`flex items-center gap-1 p-0.5 rounded-xl mb-2 border ${
+            isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-slate-100 border-slate-200/80'
+          }`}>
+            {(['tooth', 'gum'] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setTarget(option)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                  target === option
+                    ? isDark
+                      ? 'bg-slate-700 text-white shadow-xs'
+                      : 'bg-white text-slate-800 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full border border-slate-400/40"
+                  style={{ backgroundColor: option === 'gum' ? gumColor : toothColor }}
+                />
+                {option === 'gum' ? 'Gums' : 'Teeth'}
+              </button>
+            ))}
+          </div>
+
+          {/* Gum tint on / off */}
+          <button
+            onClick={() => setTintGums(!tintGums)}
+            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-xl mb-2 border text-[11px] font-medium transition-all ${
+              isDark
+                ? 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800'
+                : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100'
+            }`}
+            title="Draw the gingiva in its own colour, or in the enamel colour like a plaster model"
+          >
+            <span className="text-slate-400">Tint gums separately</span>
+            <span className={`relative w-7 h-4 rounded-full transition-colors ${
+              tintGums ? 'bg-blue-600' : isDark ? 'bg-slate-600' : 'bg-slate-300'
+            }`}>
+              <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-xs transition-all ${
+                tintGums ? 'left-3.5' : 'left-0.5'
+              }`} />
+            </span>
+          </button>
+
           {/* Preset Swatches */}
           <div className="grid grid-cols-2 gap-1.5 mb-3">
-            {DENTAL_SHADES.map((shade) => {
-              const isSelected = modelColor.toLowerCase() === shade.hex.toLowerCase();
+            {shades.map((shade) => {
+              const isSelected = activeColor.toLowerCase() === shade.hex.toLowerCase();
               return (
                 <button
                   key={shade.hex}
-                  onClick={() => setModelColor(shade.hex)}
+                  onClick={() => setActiveColor(shade.hex)}
                   className={`flex items-center gap-2 p-1.5 rounded-xl text-left transition-all border text-xs ${
                     isSelected
                       ? 'border-blue-500 bg-blue-50/20 shadow-xs'
@@ -113,7 +204,7 @@ export const ModelColorPicker: React.FC = () => {
                     style={{ backgroundColor: shade.hex }}
                   >
                     {isSelected && (
-                      <Check className={`w-2.5 h-2.5 ${shade.hex === '#FFFFFF' || shade.hex === '#FAF7EE' ? 'text-slate-900' : 'text-white'}`} />
+                      <Check className={`w-2.5 h-2.5 ${isLightSwatch(shade.hex) ? 'text-slate-900' : 'text-white'}`} />
                     )}
                   </span>
                   <div className="min-w-0">
@@ -129,16 +220,18 @@ export const ModelColorPicker: React.FC = () => {
           <div className={`flex items-center justify-between p-2 rounded-xl border ${
             isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-slate-50 border-slate-200/80'
           }`}>
-            <span className="text-[11px] font-medium text-slate-400">Custom Hex:</span>
+            <span className="text-[11px] font-medium text-slate-400">
+              {editingGum ? 'Gum Hex:' : 'Tooth Hex:'}
+            </span>
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={modelColor}
-                onChange={(e) => setModelColor(e.target.value)}
+                value={activeColor}
+                onChange={(e) => setActiveColor(e.target.value)}
                 className="w-6 h-6 rounded-md cursor-pointer border-0 p-0 bg-transparent"
                 title="Pick Custom Color"
               />
-              <span className="text-xs font-mono font-bold uppercase">{modelColor}</span>
+              <span className="text-xs font-mono font-bold uppercase">{activeColor}</span>
             </div>
           </div>
         </div>

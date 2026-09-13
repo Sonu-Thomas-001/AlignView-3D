@@ -25,6 +25,7 @@ import {
   applyDentalNormalization,
   computeGeometryPose,
 } from '@/utils/stlParser';
+import { segmentToothAndGum } from '@/utils/toothGumSegmentation';
 import { STLFileInfo } from '@/types/dental';
 
 export const UploadModal: React.FC = () => {
@@ -244,6 +245,11 @@ export const UploadModal: React.FC = () => {
           }
         }
 
+        // Split crown from gingiva now that the arch is placed. This has to happen
+        // before anything measures or renders the geometry: it reorders triangles in
+        // place, which would invalidate a bounding volume hierarchy built beforehand.
+        const split = segmentToothAndGum(geometry, arch);
+
         const bbox = geometry.boundingBox || new THREE.Box3();
         const size = new THREE.Vector3();
         bbox.getSize(size);
@@ -272,6 +278,10 @@ export const UploadModal: React.FC = () => {
           principalAxis: { x: rawPose.principalAxis.x, y: rawPose.principalAxis.y, z: rawPose.principalAxis.z },
           usesSharedFrame,
           frameShiftMm: parseFloat(frameShiftMm.toFixed(3)),
+          toothTriangles: split?.toothTriangles,
+          gumTriangles: split?.gumTriangles,
+          gingivalMarginMm: split ? parseFloat(split.meanMarginMm.toFixed(2)) : undefined,
+          marginDetectedFraction: split ? parseFloat(split.detectedFraction.toFixed(3)) : undefined,
         };
 
         if (arch === 'upper') {

@@ -19,6 +19,7 @@ import {
 } from '../src/utils/stlParser';
 import { computeStageMovement } from '../src/utils/movementAnalytics';
 import { computeOcclusionOffset } from '../src/utils/occlusion';
+import { segmentToothAndGum, type ToothGumSplit } from '../src/utils/toothGumSegmentation';
 import { STLFileInfo } from '../src/types/dental';
 import * as THREE from 'three';
 
@@ -46,6 +47,31 @@ const lowerFiles: STLFileInfo[] = [];
 // stage would re-centre each stage and cancel out the tooth movement being measured.
 const archFrames: Partial<Record<'upper' | 'lower', THREE.Matrix4>> = {};
 const archRefCenters: Partial<Record<'upper' | 'lower', THREE.Vector3>> = {};
+const splits = new Map<string, ToothGumSplit>();
+
+/** Surface area (mm2) of a contiguous run of triangles, used to check the split. */
+function areaOfTriangleRange(
+  geometry: THREE.BufferGeometry,
+  startTriangle: number,
+  triangleCount: number,
+): number {
+  const position = geometry.attributes.position as THREE.BufferAttribute;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+  let area = 0;
+  for (let t = startTriangle; t < startTriangle + triangleCount; t++) {
+    a.fromBufferAttribute(position, t * 3);
+    b.fromBufferAttribute(position, t * 3 + 1);
+    c.fromBufferAttribute(position, t * 3 + 2);
+    ab.subVectors(b, a);
+    ac.subVectors(c, a);
+    area += ab.cross(ac).length() * 0.5;
+  }
+  return area;
+}
 
 const importOrder = [...filenames].sort((a, b) => {
   const ma = parseSTLFilename(a);
@@ -71,6 +97,11 @@ for (const name of importOrder) {
   geometry.boundingBox!.getCenter(placedCenter);
   if (!archRefCenters[arch]) archRefCenters[arch] = placedCenter.clone();
   const frameShift = placedCenter.distanceTo(archRefCenters[arch]!);
+
+  // Crown / gingiva split, run here for the same reason the app runs it during import:
+  // it reorders triangles, so it has to happen before any BVH is built over the mesh.
+  const split = segmentToothAndGum(geometry, arch);
+  if (split) splits.set(name, split);
 
   geometry.computeBoundingBox();
   const bbox = geometry.boundingBox!;
@@ -105,6 +136,45 @@ for (const name of importOrder) {
   const frameOk = frameShift < 5;
   console.log(
     `${name}: stage=${info.stage} verts=${info.verticesCount} dims(w/h/d)=${width.toFixed(1)}/${height.toFixed(1)}/${depth.toFixed(1)}mm frameShift=${frameShift.toFixed(3)}mm ${plausible ? 'OK' : '** SUSPICIOUS DIMENSIONS **'} ${frameOk ? '' : '** FRAME MISMATCH **'}`
+  );
+}
+
+console.log('\n--- Tooth / gum segmentation ---');
+// Triangle share is not area share: crowns are tessellated far more finely than gums, so
+// ~90% of triangles is only about half the surface. Area is the number to judge, and it
+// should land near half and half on a trimmed arch model. The margin should also be
+// deeper at the incisors than at the molars, which the per-arch mean cannot show but a
+// grossly wrong estimate will still betray by falling outside 4-9mm.
+let segmentationWarnings = 0;
+for (const info of [...upperFiles, ...lowerFiles]) {
+  const split = splits.get(info.name);
+  const geometry = info.customBufferGeometry;
+  if (!split || !geometry) {
+    console.log(`${info.name}: ** NO SPLIT **`);
+    segmentationWarnings++;
+    continue;
+  }
+  const totalTriangles = split.toothTriangles + split.gumTriangles;
+  const toothArea = areaOfTriangleRange(geometry, 0, split.toothTriangles);
+  const gumArea = areaOfTriangleRange(geometry, split.toothTriangles, split.gumTriangles);
+  const areaShare = toothArea / (toothArea + gumArea);
+  const groupsOk = geometry.groups.length === 2
+    && geometry.groups[0].start === 0
+    && geometry.groups[0].count === split.toothTriangles * 3
+    && geometry.groups[1].count === split.gumTriangles * 3;
+
+  const areaOk = areaShare > 0.3 && areaShare < 0.7;
+  const marginOk = split.meanMarginMm > 4 && split.meanMarginMm < 9;
+  const coverageOk = split.detectedFraction > 0.4;
+  if (!areaOk || !marginOk || !coverageOk || !groupsOk) segmentationWarnings++;
+
+  console.log(
+    `${info.name}: tris tooth=${((split.toothTriangles / totalTriangles) * 100).toFixed(1)}% ` +
+    `area tooth=${(areaShare * 100).toFixed(1)}% ${areaOk ? '' : '** AREA SPLIT OFF **'} ` +
+    `margin=${split.meanMarginMm.toFixed(2)}mm (${split.minMarginMm.toFixed(2)}-${split.maxMarginMm.toFixed(2)}) ` +
+    `${marginOk ? '' : '** MARGIN DEPTH OFF **'} ` +
+    `measured=${(split.detectedFraction * 100).toFixed(0)}% of bins ${coverageOk ? '' : '** LOW COVERAGE **'} ` +
+    `${groupsOk ? '' : '** GROUPS WRONG **'}`,
   );
 }
 
@@ -148,7 +218,8 @@ for (const f of sortedUpper) {
 
 console.log(
   `\nPer-stage budget breaches: ${budgetBreaches} | total-movement regressions: ${monotonicBreaks} ` +
-  `${budgetBreaches === 0 && monotonicBreaks === 0 ? 'OK' : '** REVIEW **'}`
+  `| segmentation warnings: ${segmentationWarnings} ` +
+  `${budgetBreaches === 0 && monotonicBreaks === 0 && segmentationWarnings === 0 ? 'OK' : '** REVIEW **'}`
 );
 
 // --- Bite/occlusion verification ---

@@ -73,8 +73,18 @@ interface ViewerState {
   studioTheme: 'dark' | 'light';
   setStudioTheme: (theme: 'dark' | 'light') => void;
   toggleStudioTheme: () => void;
-  modelColor: string;
-  setModelColor: (color: string) => void;
+  /** Enamel colour, applied to the crown triangles of every arch. */
+  toothColor: string;
+  setToothColor: (color: string) => void;
+  /** Gingiva colour, applied to the triangles apical of the estimated gum line. */
+  gumColor: string;
+  setGumColor: (color: string) => void;
+  /**
+   * When off, the gum is drawn in the enamel colour, which is how a plaster or printed
+   * model looks and is what a clinician comparing to a physical model expects.
+   */
+  tintGums: boolean;
+  setTintGums: (on: boolean) => void;
 
   // Actions
   setViewMode: (mode: ViewMode) => void;
@@ -116,8 +126,12 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setStudioTheme: (theme) => set({ studioTheme: theme }),
   toggleStudioTheme: () => set((s) => ({ studioTheme: s.studioTheme === 'dark' ? 'light' : 'dark' })),
 
-  modelColor: '#FFFFFF',
-  setModelColor: (color) => set({ modelColor: color }),
+  toothColor: '#FFFFFF',
+  setToothColor: (color) => set({ toothColor: color }),
+  gumColor: '#D98E96',
+  setGumColor: (color) => set({ gumColor: color }),
+  tintGums: true,
+  setTintGums: (on) => set({ tintGums: on }),
 
   patientName: '',
   setPatientName: (name) => set({ patientName: name }),

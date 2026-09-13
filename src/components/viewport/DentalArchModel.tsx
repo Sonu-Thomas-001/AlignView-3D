@@ -5,6 +5,7 @@ import { STLLoader } from 'three-stdlib';
 import { useViewerStore } from '@/store/useViewerStore';
 import { computeDentalNormalization, applyDentalNormalization, pickFileForStage } from '@/utils/stlParser';
 import { computeOcclusionOffset } from '@/utils/occlusion';
+import { segmentToothAndGum } from '@/utils/toothGumSegmentation';
 import { getFDIToothFromPoint } from '@/utils/fdiToothMap';
 
 // Global cache for loaded and normalized STL geometries
@@ -31,7 +32,26 @@ function normalizeIntoArchFrame(
     frame = computeDentalNormalization(geometry, arch);
     archFrameCache.set(frameKey, frame);
   }
-  return applyDentalNormalization(geometry, frame);
+  const placed = applyDentalNormalization(geometry, frame);
+  segmentToothAndGum(placed, arch);
+  return placed;
+}
+
+/**
+ * Splits crown from gingiva if that has not happened yet.
+ *
+ * Uploaded geometry is split during import, so this is normally a no-op: the result is
+ * memoised on the geometry. It is called anyway on every path that hands a geometry to
+ * the renderer, because a mesh with no groups would draw entirely in the first material
+ * and silently lose the gum colour. It has to run before anything builds a bounding
+ * volume hierarchy over the geometry, since it reorders triangles in place.
+ */
+function ensureSegmented(
+  geometry: THREE.BufferGeometry,
+  arch: 'upper' | 'lower',
+): THREE.BufferGeometry {
+  segmentToothAndGum(geometry, arch);
+  return geometry;
 }
 
 interface DentalArchModelProps {
@@ -63,7 +83,9 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     selectedUpperId,
     selectedLowerId,
     setHoveredTooth,
-    modelColor,
+    toothColor,
+    gumColor,
+    tintGums,
   } = useViewerStore();
 
   const groupRef = useRef<THREE.Group>(null);
@@ -105,7 +127,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
     // 1. If buffer geometry was already parsed in memory from file upload
     if (selectedUpperFile.customBufferGeometry) {
-      setActiveUpperGeom(selectedUpperFile.customBufferGeometry);
+      setActiveUpperGeom(ensureSegmented(selectedUpperFile.customBufferGeometry, 'upper'));
       return;
     }
 
@@ -114,7 +136,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     if (!url) return;
 
     if (geometryCache.has(url)) {
-      const cached = geometryCache.get(url)!;
+      const cached = ensureSegmented(geometryCache.get(url)!, 'upper');
       setActiveUpperGeom(cached);
       selectedUpperFile.customBufferGeometry = cached;
       return;
@@ -149,7 +171,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
 
     // 1. If buffer geometry was already parsed in memory from file upload
     if (selectedLowerFile.customBufferGeometry) {
-      setActiveLowerGeom(selectedLowerFile.customBufferGeometry);
+      setActiveLowerGeom(ensureSegmented(selectedLowerFile.customBufferGeometry, 'lower'));
       return;
     }
 
@@ -158,7 +180,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
     if (!url) return;
 
     if (geometryCache.has(url)) {
-      const cached = geometryCache.get(url)!;
+      const cached = ensureSegmented(geometryCache.get(url)!, 'lower');
       setActiveLowerGeom(cached);
       selectedLowerFile.customBufferGeometry = cached;
       return;
@@ -219,54 +241,105 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
   // Material selection based on render mode & user custom color
   const clippingPlanesArray = useMemo(() => (clippingPlane ? [clippingPlane] : []), [clippingPlane]);
 
-  const archMaterial = useMemo(() => {
+  /**
+   * Two materials per arch, in the order `segmentToothAndGum` writes the geometry's
+   * groups: crown first, gingiva second. Enamel and soft tissue do not respond to light
+   * the same way, so a single material makes one of them look wrong - enamel needs a
+   * hard specular clearcoat, mucosa is matte with a wide diffuse sheen.
+   */
+  const archMaterials = useMemo(() => {
+    const enamelHex = toothColor || '#FFFFFF';
+    const gingivaHex = tintGums ? gumColor || '#D98E96' : enamelHex;
+
     if (renderMode === 'wireframe') {
-      return new THREE.MeshBasicMaterial({
-        color: '#38BDF8',
-        wireframe: true,
-        clippingPlanes: clippingPlanesArray,
-      });
+      return [
+        new THREE.MeshBasicMaterial({
+          color: '#38BDF8',
+          wireframe: true,
+          clippingPlanes: clippingPlanesArray,
+        }),
+        new THREE.MeshBasicMaterial({
+          color: tintGums ? '#F472B6' : '#38BDF8',
+          wireframe: true,
+          clippingPlanes: clippingPlanesArray,
+        }),
+      ];
     }
 
     if (renderMode === 'solid') {
-      return new THREE.MeshLambertMaterial({
-        color: modelColor || '#FFFFFF',
-        clippingPlanes: clippingPlanesArray,
-      });
+      return [
+        new THREE.MeshLambertMaterial({
+          color: enamelHex,
+          clippingPlanes: clippingPlanesArray,
+        }),
+        new THREE.MeshLambertMaterial({
+          color: gingivaHex,
+          clippingPlanes: clippingPlanesArray,
+        }),
+      ];
     }
 
     if (renderMode === 'xray') {
-      return new THREE.MeshPhysicalMaterial({
-        color: '#93C5FD',
-        transparent: true,
-        opacity: 0.55,
-        transmission: 0.65,
-        roughness: 0.12,
-        metalness: 0.08,
-        depthWrite: false,
-        clippingPlanes: clippingPlanesArray,
-      });
+      // Both surfaces stay translucent; the gum is pushed further back so the roots and
+      // crown outlines a clinician is looking for in this mode stay legible through it.
+      return [
+        new THREE.MeshPhysicalMaterial({
+          color: '#93C5FD',
+          transparent: true,
+          opacity: 0.55,
+          transmission: 0.65,
+          roughness: 0.12,
+          metalness: 0.08,
+          depthWrite: false,
+          clippingPlanes: clippingPlanesArray,
+        }),
+        new THREE.MeshPhysicalMaterial({
+          color: tintGums ? '#F9A8D4' : '#93C5FD',
+          transparent: true,
+          opacity: 0.32,
+          transmission: 0.8,
+          roughness: 0.35,
+          metalness: 0.02,
+          depthWrite: false,
+          clippingPlanes: clippingPlanesArray,
+        }),
+      ];
     }
 
     // Default: 'shaded' - Clinical Dental Ceramic / Gypsum with Studio Clearcoat
-    return new THREE.MeshPhysicalMaterial({
-      color: modelColor || '#FFFFFF',
-      roughness: 0.18,
-      metalness: 0.01,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.08,
-      reflectivity: 0.9,
-      clippingPlanes: clippingPlanesArray,
-      clipShadows: true,
-    });
-  }, [renderMode, clippingPlanesArray, modelColor]);
+    return [
+      new THREE.MeshPhysicalMaterial({
+        color: enamelHex,
+        roughness: 0.18,
+        metalness: 0.01,
+        clearcoat: 0.85,
+        clearcoatRoughness: 0.08,
+        reflectivity: 0.9,
+        clippingPlanes: clippingPlanesArray,
+        clipShadows: true,
+      }),
+      new THREE.MeshPhysicalMaterial({
+        color: gingivaHex,
+        roughness: 0.62,
+        metalness: 0,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.6,
+        reflectivity: 0.28,
+        sheen: 0.65,
+        sheenRoughness: 0.5,
+        sheenColor: new THREE.Color('#FFD9DE'),
+        clippingPlanes: clippingPlanesArray,
+        clipShadows: true,
+      }),
+    ];
+  }, [renderMode, clippingPlanesArray, toothColor, gumColor, tintGums]);
 
-  // Dispose the previous material whenever a new one is created, and on unmount
+  // Dispose the previous materials whenever new ones are created, and on unmount
   useEffect(() => {
     return () => {
-      archMaterial.dispose();
+      for (const material of archMaterials) material.dispose();
     };
-  }, [archMaterial]);
+  }, [archMaterials]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (activeTool === 'measure') {
@@ -327,7 +400,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         >
           <mesh
             geometry={activeUpperGeom}
-            material={archMaterial}
+            material={archMaterials}
             castShadow
             receiveShadow
           />
@@ -345,7 +418,7 @@ export const DentalArchModel: React.FC<DentalArchModelProps> = ({
         >
           <mesh
             geometry={activeLowerGeom}
-            material={archMaterial}
+            material={archMaterials}
             castShadow
             receiveShadow
           />
