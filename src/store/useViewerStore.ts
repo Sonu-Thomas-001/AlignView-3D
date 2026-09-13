@@ -150,7 +150,11 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setStudioTheme: (theme) => set({ studioTheme: theme }),
   toggleStudioTheme: () => set((s) => ({ studioTheme: s.studioTheme === 'dark' ? 'light' : 'dark' })),
 
-  toothColor: '#FFFFFF',
+  // Natural Enamel, not Pure White. No tooth is pure white, and under the clearcoat the shaded
+  // material carries it blows the highlights out and flattens the cusps into one bright shape -
+  // the opposite of what a provider sharing a preview needs to see. Pure White is still in the
+  // palette for anyone matching a printed model.
+  toothColor: '#FAF7EE',
   setToothColor: (color) => set({ toothColor: color }),
   gumColor: '#D98E96',
   setGumColor: (color) => set({ gumColor: color }),
